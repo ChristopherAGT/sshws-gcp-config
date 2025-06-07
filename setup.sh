@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ╔════════════════════════════════════════════════════════╗
-# ║      🚀 CREAR REPOSITORIO + CONSTRUIR Y SUBIR IMAGEN   ║
-# ║                  ARTIFACT REGISTRY - GCP               ║
+# ║      🚀 CREAR REPOSITORIO + CONSTRUIR Y SUBIR IMAGEN             ║
+# ║                  ARTIFACT REGISTRY - GCP                         ║
 # ╚════════════════════════════════════════════════════════╝
 
 # Colores 🎨
