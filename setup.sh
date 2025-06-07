@@ -120,18 +120,16 @@ while true; do
 
     echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
     
-    EXISTS_IMAGE=$(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" \
-        --format="get(package)" \
-        --filter="package='$IMAGE_NAME'")
+    IMAGE_FULL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
 
-    if [[ -n "$EXISTS_IMAGE" ]]; then
-        echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-        continue
-    else
-        echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
-        break
-    fi
+if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+    echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+    echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
+    continue
+else
+    echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+    break
+fi
 done
 
 echo -e "${cyan}"
