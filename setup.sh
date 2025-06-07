@@ -14,16 +14,16 @@ cyan="\e[36m"
 neutro="\e[0m"
 
 # 🔧 Región por defecto
-REGION="us-east1"
+REGION="us-east1"  # Carolina del Sur
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📦 SELECCIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${amarillo}Seleccione una opción:${neutro}"
 
 while true; do
     echo -e "${neutro}"
+    PS3=$'\e[33mSeleccione una opción:\e[0m '
     select opcion in "Usar existente" "Crear nuevo"; do
         case $REPLY in
             1)
@@ -34,7 +34,7 @@ while true; do
                     opcion="Crear nuevo"
                     break 2
                 else
-                    echo -e "${amarillo}Seleccione un repositorio:${neutro}"
+                    PS3=$'\e[33mSeleccione un repositorio:\e[0m '
                     select repo in $REPO_LIST; do
                         if [[ -n "$repo" ]]; then
                             REPO_NAME=$(basename "$repo")
@@ -119,11 +119,12 @@ while true; do
     IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
 
     echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+    
+    EXISTS_IMAGE=$(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" \
+        --format="get(package)" \
+        --filter="package='$IMAGE_NAME'")
 
-    # ❗ Este comando NO usa --location (daría error)
-    TAGS=$(gcloud artifacts docker tags list "$IMAGE_PATH" --format="value(tag)" 2>/dev/null)
-
-    if echo "$TAGS" | grep -q "^$IMAGE_PATH:$IMAGE_TAG$"; then
+    if [[ -n "$EXISTS_IMAGE" ]]; then
         echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
         echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
         continue
