@@ -14,7 +14,7 @@ cyan="\e[36m"
 neutro="\e[0m"
 
 # 🔧 Región por defecto
-REGION="us-east1"  # Carolina del Sur
+REGION="us-east1"
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -119,12 +119,11 @@ while true; do
     IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
 
     echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
-    
-    EXISTS_IMAGE=$(gcloud artifacts docker tags list "$IMAGE_PATH" \
-        --location="$REGION" \
-        --format="value(tag)" | grep -x "$IMAGE_PATH:$IMAGE_TAG" || true)
 
-    if [[ -n "$EXISTS_IMAGE" ]]; then
+    # ❗ Este comando NO usa --location (daría error)
+    TAGS=$(gcloud artifacts docker tags list "$IMAGE_PATH" --format="value(tag)" 2>/dev/null)
+
+    if echo "$TAGS" | grep -q "^$IMAGE_PATH:$IMAGE_TAG$"; then
         echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
         echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
         continue
