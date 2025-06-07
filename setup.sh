@@ -20,9 +20,9 @@ echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📛 SOLICITANDO NOMBRE DEL REPOSITORIO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${azul}📛 Ingresa un nombre para el repositorio (Enter para usar 'googlo-cloud'):${neutro}"
+echo -e "${azul}📛 Ingresa un nombre para el repositorio (Enter para usar 'google-cloud'):${neutro}"
 read -p "📝 Nombre del repositorio: " input_repo
-REPO_NAME="${input_repo:-googlo-cloud}"
+REPO_NAME="${input_repo:-google-cloud}"
 echo -e "${verde}✔ Repositorio a usar: $REPO_NAME${neutro}"
 
 echo -e "${cyan}"
@@ -75,7 +75,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Bucle para solicitar nombre de imagen válido
+# Bucle para solicitar nombre de imagen que NO exista
 while true; do
     echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'cloud3'):${neutro}"
     read -p "📝 Nombre de la imagen: " input_image
@@ -83,28 +83,23 @@ while true; do
     IMAGE_TAG="1.0"
     IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
 
-    # Verificar si ya existe una imagen con ese nombre
     echo -e "${azul}🔍 Comprobando si la imagen '$IMAGE_NAME' ya existe...${neutro}"
     EXISTS_IMAGE=$(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" \
         --format="value(NAME)" | grep -w "$IMAGE_NAME" || true)
 
     if [[ -n "$EXISTS_IMAGE" ]]; then
-        echo -e "${amarillo}⚠️ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
-        read -p "❓ ¿Deseas sobrescribirla? (s/n): " overwrite
-        if [[ "$overwrite" =~ ^[Ss]$ ]]; then
-            echo -e "${amarillo}⚠️ La imagen existente será sobrescrita...${neutro}"
-            break
-        else
-            echo -e "${amarillo}🔁 Por favor, elige otro nombre para la imagen.${neutro}"
-        fi
+        echo -e "${rojo}❌ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
+        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
+        continue
     else
+        echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
         break
     fi
 done
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📥 CLONANDO REPOSITORIO GIT"
+echo "📥 CLONANDO REPOSITORIO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [[ -d "sshws-gcp" ]]; then
