@@ -18,12 +18,48 @@ REGION="us-east1"  # Carolina del Sur
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📛 SOLICITANDO NOMBRE DEL REPOSITORIO"
+echo "📦 SELECCIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${azul}📛 Ingresa un nombre para el repositorio (Enter para usar 'google-cloud'):${neutro}"
-read -p "📝 Nombre del repositorio: " input_repo
-REPO_NAME="${input_repo:-google-cloud}"
-echo -e "${verde}✔ Repositorio a usar: $REPO_NAME${neutro}"
+echo -e "${azul}¿Deseas usar un repositorio existente o crear uno nuevo?${neutro}"
+
+while true; do
+    echo -e "${neutro}"
+    select opcion in "Usar existente" "Crear nuevo"; do
+        case $REPLY in
+            1)
+                echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
+                REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
+                if [[ -z "$REPO_LIST" ]]; then
+                    echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
+                    opcion="Crear nuevo"
+                    break 2
+                else
+                    echo -e "${azul}📋 Selecciona un repositorio:${neutro}"
+                    select repo in $REPO_LIST; do
+                        if [[ -n "$repo" ]]; then
+                            REPO_NAME=$(basename "$repo")
+                            echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
+                            break 3
+                        else
+                            echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
+                        fi
+                    done
+                fi
+                ;;
+            2)
+                echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
+                read -p "📝 Nombre del repositorio: " input_repo
+                REPO_NAME="${input_repo:-google-cloud}"
+                echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
+                break 2
+                ;;
+            *)
+                echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+                break
+                ;;
+        esac
+    done
+done
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -75,7 +111,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Bucle para solicitar nombre de imagen que NO exista
 while true; do
     echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'cloud3'):${neutro}"
     read -p "📝 Nombre de la imagen: " input_image
