@@ -23,42 +23,43 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${azul}¿Deseas usar un repositorio existente o crear uno nuevo?${neutro}"
 
 while true; do
-    echo -e "${neutro}"
-    select opcion in "Usar existente" "Crear nuevo"; do
-        case $REPLY in
-            1)
-                echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
-                REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
-                if [[ -z "$REPO_LIST" ]]; then
-                    echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
-                    opcion="Crear nuevo"
-                    break 2
-                else
-                    echo -e "${azul}📋 Selecciona un repositorio:${neutro}"
-                    select repo in $REPO_LIST; do
-                        if [[ -n "$repo" ]]; then
-                            REPO_NAME=$(basename "$repo")
-                            echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
-                            break 3
-                        else
-                            echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
-                        fi
-                    done
-                fi
-                ;;
-            2)
-                echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
-                read -p "📝 Nombre del repositorio: " input_repo
-                REPO_NAME="${input_repo:-google-cloud}"
-                echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
-                break 2
-                ;;
-            *)
-                echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+    echo -e "${amarillo}Seleccione una opción:${neutro}"
+    echo "1) Usar existente"
+    echo "2) Crear nuevo"
+    read -p "#? " opcion
+
+    case $opcion in
+        1)
+            echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
+            REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
+            if [[ -z "$REPO_LIST" ]]; then
+                echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
+                opcion="Crear nuevo"
                 break
-                ;;
-        esac
-    done
+            else
+                echo -e "${azul}📋 Selecciona un repositorio:${neutro}"
+                select repo in $REPO_LIST; do
+                    if [[ -n "$repo" ]]; then
+                        REPO_NAME=$(basename "$repo")
+                        echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
+                        break 2
+                    else
+                        echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
+                    fi
+                done
+            fi
+            ;;
+        2)
+            echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
+            read -p "📝 Nombre del repositorio: " input_repo
+            REPO_NAME="${input_repo:-google-cloud}"
+            echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
+            break
+            ;;
+        *)
+            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+            ;;
+    esac
 done
 
 echo -e "${cyan}"
@@ -120,19 +121,12 @@ while true; do
 
     echo -e "${azul}🔍 Comprobando si la imagen '$IMAGE_NAME' ya existe...${neutro}"
     EXISTS_IMAGE=$(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" \
-        --format="value(NAME)" | grep -w "$IMAGE_NAME" || true)
+        --format="value(NAME)" | awk -F'/' '{print $NF}' | grep -x "$IMAGE_NAME" || true)
 
     if [[ -n "$EXISTS_IMAGE" ]]; then
-        echo -e "${amarillo}⚠️ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
-        echo -e "${azul}¿Deseas sobrescribirla? (s/n)${neutro}"
-        read -rp "➡️  Tu elección: " overwrite_choice
-        if [[ "$overwrite_choice" =~ ^[sS]$ ]]; then
-            echo -e "${verde}✔ Se sobrescribirá la imagen existente.${neutro}"
-            break
-        else
-            echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
-            continue
-        fi
+        echo -e "${rojo}❌ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
+        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
+        continue
     else
         echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
         break
