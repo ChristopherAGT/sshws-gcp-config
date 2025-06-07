@@ -123,9 +123,16 @@ while true; do
         --format="value(NAME)" | grep -w "$IMAGE_NAME" || true)
 
     if [[ -n "$EXISTS_IMAGE" ]]; then
-        echo -e "${rojo}❌ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
-        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
-        continue
+        echo -e "${amarillo}⚠️ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
+        echo -e "${azul}¿Deseas sobrescribirla? (s/n)${neutro}"
+        read -rp "➡️  Tu elección: " overwrite_choice
+        if [[ "$overwrite_choice" =~ ^[sS]$ ]]; then
+            echo -e "${verde}✔ Se sobrescribirá la imagen existente.${neutro}"
+            break
+        else
+            echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
+            continue
+        fi
     else
         echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
         break
