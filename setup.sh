@@ -34,19 +34,29 @@ fi
 
 echo -e "${verde}✔ Proyecto activo: $PROJECT_ID${neutro}"
 
-echo -e "${azul}📦 Creando repositorio '$REPO_NAME' en región '$REGION'...${neutro}"
+# 🔎 Verifica si el repositorio ya existe
+echo -e "${azul}📦 Verificando existencia del repositorio '$REPO_NAME' en región '$REGION'...${neutro}"
+EXISTS=$(gcloud artifacts repositories list \
+    --location="$REGION" \
+    --filter="name~$REPO_NAME" \
+    --format="value(name)")
 
-gcloud artifacts repositories create "$REPO_NAME" \
-  --repository-format=docker \
-  --location="$REGION" \
-  --description="Repositorio Docker para SSH-WS en GCP" \
-  --quiet
-
-if [[ $? -ne 0 ]]; then
-    echo -e "${rojo}❌ Error al crear el repositorio.${neutro}"
-    exit 1
+if [[ -n "$EXISTS" ]]; then
+    echo -e "${amarillo}⚠️ El repositorio '$REPO_NAME' ya existe. Omitiendo creación.${neutro}"
 else
-    echo -e "${verde}✅ Repositorio creado correctamente.${neutro}"
+    echo -e "${azul}📦 Creando repositorio '$REPO_NAME'...${neutro}"
+    gcloud artifacts repositories create "$REPO_NAME" \
+      --repository-format=docker \
+      --location="$REGION" \
+      --description="Repositorio Docker para SSH-WS en GCP" \
+      --quiet
+
+    if [[ $? -ne 0 ]]; then
+        echo -e "${rojo}❌ Error al crear el repositorio.${neutro}"
+        exit 1
+    else
+        echo -e "${verde}✅ Repositorio creado correctamente.${neutro}"
+    fi
 fi
 
 echo -e "${azul}🔐 Configurando Docker para autenticación con Artifact Registry...${neutro}"
@@ -60,16 +70,9 @@ else
     echo -e "${verde}✅ Docker configurado exitosamente.${neutro}"
 fi
 
-# 🎉 Mensaje final
+# ✅ Mensaje final personalizado
 echo -e "${amarillo}"
-echo "╔══════════════════════════════════════════════════════╗"
-echo "║ ✅ El repositorio está listo para recibir tu imagen! ║"
-echo "║ Usa este comando para construir tu imagen Docker:    ║"
-echo "║                                                      ║"
-echo "║  docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/sshws-image:latest ."
-echo "║                                                      ║"
-echo "║ Y luego púshala con:                                 ║"
-echo "║                                                      ║"
-echo "║  docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/sshws-image:latest"
-echo "╚══════════════════════════════════════════════════════╝"
+echo "╔═════════════════════════════════════════════════════╗"
+echo "║ ✅ Repositorio '$REPO_NAME' está listo para recibir tu imagen. ║"
+echo "╚═════════════════════════════════════════════════════╝"
 echo -e "${neutro}"
