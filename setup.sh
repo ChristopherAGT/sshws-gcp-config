@@ -20,46 +20,45 @@ echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📦 SELECCIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${azul}¿Deseas usar un repositorio existente o crear uno nuevo?${neutro}"
+echo -e "${amarillo}Seleccione una opción:${neutro}"
 
 while true; do
-    echo -e "${amarillo}Seleccione una opción:${neutro}"
-    echo "1) Usar existente"
-    echo "2) Crear nuevo"
-    read -p "#? " opcion
-
-    case $opcion in
-        1)
-            echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
-            REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
-            if [[ -z "$REPO_LIST" ]]; then
-                echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
-                opcion="Crear nuevo"
+    echo -e "${neutro}"
+    select opcion in "Usar existente" "Crear nuevo"; do
+        case $REPLY in
+            1)
+                echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
+                REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
+                if [[ -z "$REPO_LIST" ]]; then
+                    echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
+                    opcion="Crear nuevo"
+                    break 2
+                else
+                    echo -e "${amarillo}Seleccione un repositorio:${neutro}"
+                    select repo in $REPO_LIST; do
+                        if [[ -n "$repo" ]]; then
+                            REPO_NAME=$(basename "$repo")
+                            echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
+                            break 3
+                        else
+                            echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
+                        fi
+                    done
+                fi
+                ;;
+            2)
+                echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
+                read -p "📝 Nombre del repositorio: " input_repo
+                REPO_NAME="${input_repo:-google-cloud}"
+                echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
+                break 2
+                ;;
+            *)
+                echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
                 break
-            else
-                echo -e "${azul}📋 Selecciona un repositorio:${neutro}"
-                select repo in $REPO_LIST; do
-                    if [[ -n "$repo" ]]; then
-                        REPO_NAME=$(basename "$repo")
-                        echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
-                        break 2
-                    else
-                        echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
-                    fi
-                done
-            fi
-            ;;
-        2)
-            echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
-            read -p "📝 Nombre del repositorio: " input_repo
-            REPO_NAME="${input_repo:-google-cloud}"
-            echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
-            break
-            ;;
-        *)
-            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
-            ;;
-    esac
+                ;;
+        esac
+    done
 done
 
 echo -e "${cyan}"
@@ -117,15 +116,17 @@ while true; do
     read -p "📝 Nombre de la imagen: " input_image
     IMAGE_NAME="${input_image:-cloud3}"
     IMAGE_TAG="1.0"
-    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
+    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
 
-    echo -e "${azul}🔍 Comprobando si la imagen '$IMAGE_NAME' ya existe...${neutro}"
-    EXISTS_IMAGE=$(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" \
-        --format="value(NAME)" | awk -F'/' '{print $NF}' | grep -x "$IMAGE_NAME" || true)
+    echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+    
+    EXISTS_IMAGE=$(gcloud artifacts docker tags list "$IMAGE_PATH" \
+        --location="$REGION" \
+        --format="value(tag)" | grep -x "$IMAGE_PATH:$IMAGE_TAG" || true)
 
     if [[ -n "$EXISTS_IMAGE" ]]; then
-        echo -e "${rojo}❌ Ya existe una imagen con el nombre '$IMAGE_NAME'.${neutro}"
-        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar conflictos.${neutro}"
+        echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
         continue
     else
         echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
@@ -157,7 +158,7 @@ echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🐳 CONSTRUYENDO IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-docker build -t "$IMAGE_PATH" .
+docker build -t "$IMAGE_PATH:$IMAGE_TAG" .
 
 [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al construir la imagen.${neutro}" && exit 1
 
@@ -165,7 +166,7 @@ echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📤 SUBIENDO IMAGEN A ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-docker push "$IMAGE_PATH"
+docker push "$IMAGE_PATH:$IMAGE_TAG"
 
 [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al subir la imagen.${neutro}" && exit 1
 
@@ -179,6 +180,6 @@ rm -rf sshws-gcp
 echo -e "${amarillo}"
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
-echo "║ 📍 Ruta: $IMAGE_PATH"
+echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo -e "${neutro}"
