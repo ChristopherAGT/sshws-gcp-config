@@ -12,9 +12,17 @@ azul="\e[34m"
 amarillo="\e[33m"
 neutro="\e[0m"
 
-# 🔧 Configura estas variables
+# 🔧 Configura esta variable
 REGION="us-central1"
-REPO_NAME="sshws-repo"
+
+# 📝 Solicita nombre del repositorio
+echo -e "${azul}📛 Ingresa un nombre para el repositorio (Enter para usar 'googlo-cloud'):${neutro}"
+read -p "📝 Nombre del repositorio: " input_repo
+
+# Usa el valor ingresado o el valor por defecto
+REPO_NAME="${input_repo:-googlo-cloud}"
+
+echo -e "${verde}✔ Repositorio a crear: $REPO_NAME${neutro}"
 
 echo -e "${azul}🔍 Obteniendo ID del proyecto activo...${neutro}"
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
