@@ -299,4 +299,48 @@ echo "╔═══════════════════════�
 echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
 echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
+
+# 🚀 DESPLEGUE DEL SERVICIO EN CLOUD RUN
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🌐 DESPLEGANDO SERVICIO EN CLOUD RUN"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
+
+# Definir el nombre del servicio igual al nombre de la imagen (puedes modificar si quieres)
+SERVICE_NAME="$IMAGE_NAME"
+
+# Obtener número de proyecto
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+
+# Ejecutar despliegue
+SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
+  --image "$IMAGE_PATH:$IMAGE_TAG" \
+  --platform managed \
+  --region "$REGION" \
+  --allow-unauthenticated \
+  --port 8080 \
+  --quiet \
+  --format="value(status.url)")
+
+if [[ $? -ne 0 ]]; then
+    echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
+    exit 1
+fi
+
+# Dominio regional del servicio
+REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
+
+# Mostrar resumen final
+echo -e "${verde}"
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║ 📦 INFORMACIÓN DEL DESPLIEGUE EN CLOUD RUN                  ║"
+echo "╠════════════════════════════════════════════════════════════╣"
+echo "║ 🗂️  Proyecto GCP        : $PROJECT_ID"
+echo "║ 🔢 Número de Proyecto   : $PROJECT_NUMBER"
+echo "║ 📛 Nombre del Servicio  : $SERVICE_NAME"
+echo "║ 📍 Región de Despliegue : $REGION"
+echo "║ 🌐 URL del Servicio     : $SERVICE_URL"
+echo "║ 🌐 Dominio Regional     : $REGIONAL_DOMAIN"
+echo "╚════════════════════════════════════════════════════════════╝"
 echo -e "${neutro}"
