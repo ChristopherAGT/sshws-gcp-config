@@ -112,7 +112,7 @@ if [[ -d "sshws-gcp" ]]; then
     rm -rf sshws-gcp
 fi
 
-git clone https://gitlab.com/PANCHO7532/sshws-gcp || {
+git clone https://github.com/ChristopherAGT/sshws-gcp || {
     echo -e "${rojo}❌ Error al clonar el repositorio.${neutro}"
     exit 1
 }
