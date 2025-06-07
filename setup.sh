@@ -89,12 +89,15 @@ while true; do
   fi
 done
 
+# 📁 Eliminar carpeta vieja si existe
+if [[ -d "sshws-gcp" ]]; then
+  echo -e "${amarillo}🧹 Eliminando versión anterior del repositorio 'sshws-gcp'...${neutro}"
+  rm -rf sshws-gcp
+fi
+
 # 📥 Clonando repositorio
 echo -e "${azul}📥 Clonando repositorio desde GitLab...${neutro}"
-git clone https://gitlab.com/PANCHO7532/sshws-gcp || {
-    echo -e "${rojo}❌ Error al clonar el repositorio.${neutro}"
-    exit 1
-}
+git clone https://gitlab.com/PANCHO7532/sshws-gcp
 
 cd sshws-gcp || {
     echo -e "${rojo}❌ No se pudo acceder al directorio sshws-gcp.${neutro}"
