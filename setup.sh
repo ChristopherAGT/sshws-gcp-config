@@ -231,9 +231,9 @@ echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 while true; do
-    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'cloud3'):${neutro}"
+    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
     read -p "📝 Nombre de la imagen: " input_image
-    IMAGE_NAME="${input_image:-cloud3}"
+    IMAGE_NAME="${input_image:-gcp}"
     IMAGE_TAG="1.0"
     IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
 
