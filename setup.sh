@@ -311,10 +311,28 @@ echo -e "${neutro}"
 read -p "📛 Ingresa el nombre que deseas para el servicio en Cloud Run (default: rain): " SERVICE_NAME
 SERVICE_NAME=${SERVICE_NAME:-rain}
 
-# 👉 Solicitar el subdominio personalizado para DHOST
-echo -e "${amarillo}"
-read -p "🌐 Ingrese su subdominio personalizado (cloudflare): " DHOST
-echo -e "${neutro}"
+# 🔐 Solicitar y validar el subdominio personalizado para DHOST
+while true; do
+    echo -e "${amarillo}"
+    read -p "🌐 Ingrese su subdominio personalizado (Cloudflare): " DHOST
+    echo -e "${neutro}"
+
+    # Validar que no esté vacío y tenga al menos un punto
+    if [[ -z "$DHOST" || "$DHOST" != *.* || "$DHOST" == *" "* ]]; then
+        echo -e "${rojo}❌ El subdominio no puede estar vacío, debe contener al menos un punto y no tener espacios.${neutro}"
+        continue
+    fi
+
+    echo -e "${verde}✅ Se ingresó el subdominio: $DHOST${neutro}"
+    read -p "¿Desea continuar con este subdominio? (s/N): " CONFIRMAR
+    CONFIRMAR=${CONFIRMAR,,}  # Convertir a minúscula
+
+    if [[ "$CONFIRMAR" == "s" ]]; then
+        break
+    else
+        echo -e "${amarillo}🔁 Vamos a volver a solicitar el subdominio...${neutro}"
+    fi
+done
 
 # Obtener número de proyecto (por si lo necesitas después)
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
