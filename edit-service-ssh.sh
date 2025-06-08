@@ -17,7 +17,7 @@ REGIONS=(
   "us-south1" "us-west1" "us-west2" "us-west3" "us-west4"
 )
 
-# Función para mostrar el spinner
+# Función para mostrar el spinner mejorado
 spinner() {
   local pid=$1
   local delay=0.1
@@ -25,10 +25,10 @@ spinner() {
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
     i=$(( (i+1) % 4 ))
-    printf "\rBuscando servicios en Cloud Run... ${spin:i:1}"
+    printf "\r$(tput el)Buscando servicios en Cloud Run... ${spin:i:1}"
     sleep $delay
   done
-  printf "\rListo!                          \n"
+  printf "\r$(tput el)Listo!                          \n"
 }
 
 # Encabezado
@@ -38,8 +38,9 @@ echo    "🔎 BUSCANDO SERVICIOS CLOUD RUN EN TODAS LAS REGIONES"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${NC}"
 
-# Archivo temporal para capturar salida del subshell
+# Archivo temporal y cleanup
 tmpfile=$(mktemp)
+trap "rm -f $tmpfile" EXIT
 
 # Buscar servicios en segundo plano y guardar resultados en tmpfile
 (
@@ -66,8 +67,6 @@ while IFS= read -r line; do
   SERVICIOS+=("$service")
   INFO_SERVICIOS+=("$line")
 done < "$tmpfile"
-
-rm "$tmpfile"
 
 # Validación
 if [ ${#SERVICIOS[@]} -eq 0 ]; then
@@ -102,10 +101,15 @@ REGION_SELECCIONADA=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$seleccion]}")
 echo
 while true; do
   read -p "🌐 Ingrese su nuevo subdominio personalizado (cloudflare): " DHOST_VALOR
-  if [[ -n "$DHOST_VALOR" ]]; then
-    break
+  if [[ -z "$DHOST_VALOR" ]]; then
+    echo -e "${RED}❌ El campo no puede estar vacío.${NC}"
+    continue
   fi
-  echo -e "${RED}❌ El campo no puede estar vacío.${NC}"
+  if [[ ! "$DHOST_VALOR" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+    echo -e "${RED}❌ El subdominio ingresado no es válido. Ej: ejemplo.com o sub.dominio.net${NC}"
+    continue
+  fi
+  break
 done
 
 # Confirmación
