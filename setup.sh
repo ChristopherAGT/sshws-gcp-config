@@ -333,7 +333,6 @@ while true; do
         break
     else
         echo -e "${azul}🔁 Vamos a volver a solicitar el subdominio...${neutro}"
-        echo #AÑADI-ESPACIL
     fi
 done
 
