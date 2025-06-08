@@ -31,7 +31,7 @@ fi
 # Archivos temporales
 TMPFILE=$(mktemp)
 TMP_DIR=$(mktemp -d)
-trap 'rm -f -- "$0" "$TMPFILE"; rm -rf "$TMP_DIR"' EXIT
+trap 'rm -f -- "$TMPFILE"; rm -rf "$TMP_DIR"' EXIT
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -141,6 +141,7 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
     IMAGE_LIST=$(gcloud artifacts docker images list "$FULL_PATH" --include-tags --format=json 2>/dev/null)
 
+    # Obtener digest
     if [[ "$SEP" == ":" ]]; then
         DIGEST=$(echo "$IMAGE_LIST" | jq -r --arg TAG "$TAG_OR_DIGEST" '.[] | select(.tags[]? == $TAG) | .digest' | head -n1)
     else
@@ -157,8 +158,10 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
         if [[ -n "$TAGS" ]]; then
             for TAG in $TAGS; do
                 echo -e "${CYAN}🧹 Eliminando tag: ${BOLD}${TAG}${RESET}"
-                gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
+                gcloud artifacts docker tags delete "$FULL_PATH:$TAG" --quiet
             done
+        else
+            echo -e "${YELLOW}⚠️ No hay tags asociados a este digest.${RESET}"
         fi
 
         echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
