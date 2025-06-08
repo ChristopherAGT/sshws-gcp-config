@@ -124,28 +124,31 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
 
     if [[ "$SEP" == ":" ]]; then
-        # Si se especificó un tag, obtener digest
         DIGEST=$(gcloud artifacts docker images describe "$FULL_PATH:$TAG_OR_DIGEST" --format="value(image_summary.digest)" 2>/dev/null)
     else
-        # Si ya es digest
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    echo -e "${CYAN}🔎 Buscando tags asociados al digest ${BOLD}${DIGEST}${RESET}${CYAN}...${RESET}"
-
-    TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" --format="json" 2>/dev/null | jq -r --arg D "$DIGEST" '.[] | select(.image_summary.digest == $D) | .tags[]?')
-
-    if [[ -z "$TAGS" ]]; then
-        echo -e "${YELLOW}⚠️  No se encontraron tags asociados al digest.${RESET}"
+    if [[ -z "$DIGEST" ]]; then
+        echo -e "${RED}❌ No se pudo obtener el digest para la imagen ${BOLD}$FULL_PATH${SEP}${TAG_OR_DIGEST}${RESET}"
     else
-        for TAG in $TAGS; do
-            echo -e "${CYAN}🧹 Eliminando tag: ${BOLD}${TAG}${RESET}"
-            gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
-        done
-    fi
+        echo -e "${GREEN}✅ Digest obtenido:${RESET} ${DIGEST}"
+        echo -e "${CYAN}🔎 Buscando tags asociados al digest ${BOLD}${DIGEST}${RESET}${CYAN}...${RESET}"
 
-    echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
-    gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
+        TAGS=$(gcloud artifacts docker images list "$FULL_PATH" --include-tags --format="json" 2>/dev/null | jq -r --arg D "$DIGEST" '.[] | select(.digest == $D) | .tags[]?')
+
+        if [[ -z "$TAGS" ]]; then
+            echo -e "${YELLOW}⚠️  No se encontraron tags asociados al digest.${RESET}"
+        else
+            for TAG in $TAGS; do
+                echo -e "${CYAN}🧹 Eliminando tag: ${BOLD}${TAG}${RESET}"
+                gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
+            done
+        fi
+
+        echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
+        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
+    fi
 fi
 
 if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
