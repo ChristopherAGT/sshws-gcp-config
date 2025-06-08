@@ -75,41 +75,41 @@ if [ ${#SERVICIOS[@]} -eq 0 ]; then
   exit 1
 fi
 
-# Mostrar servicios
+# Mostrar servicios desde [1]
 echo -e "${YELLOW}Servicios disponibles:${NC}"
 for i in "${!SERVICIOS[@]}"; do
+  num=$((i + 1))
   region=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$i]}")
-  echo -e "  [$i] ${GREEN}${SERVICIOS[$i]}${NC} (${CYAN}${region}${NC})"
+  echo -e "  [${num}] ${GREEN}${SERVICIOS[$i]}${NC} (${CYAN}${region}${NC})"
 done
 
-# Selección
+# Bucle para selección válida
 echo
-read -p "👉 Selecciona el número del servicio que deseas editar: " seleccion
-
-if ! [[ "$seleccion" =~ ^[0-9]+$ ]] || [ "$seleccion" -ge "${#SERVICIOS[@]}" ]; then
-  echo -e "${RED}❌ Selección inválida.${NC}"
-  exit 1
-fi
+while true; do
+  read -p "👉 Selecciona el número del servicio que deseas editar: " seleccion
+  if [[ "$seleccion" =~ ^[0-9]+$ ]] && [ "$seleccion" -ge 1 ] && [ "$seleccion" -le "${#SERVICIOS[@]}" ]; then
+    seleccion=$((seleccion - 1))
+    break
+  fi
+  echo -e "${RED}❌ Selección inválida. Intente nuevamente.${NC}"
+done
 
 # Extraer nombre y región
 SERVICIO_SELECCIONADO=$(cut -d '|' -f1 <<< "${INFO_SERVICIOS[$seleccion]}")
 REGION_SELECCIONADA=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$seleccion]}")
 
-# Solicitar subdominio personalizado
+# Bucle para obtener un DHOST válido
 echo
-read -p "🌐 Agregue su subdominio personalizado (valor para DHOST): " DHOST_VALOR
-
-if [[ -z "$DHOST_VALOR" ]]; then
-  echo -e "${RED}❌ El valor de DHOST no puede estar vacío.${NC}"
-  exit 1
-fi
+while true; do
+  read -p "🌐 Ingrese su nuevo subdominio personalizado (cloudflare): " DHOST_VALOR
+  if [[ -n "$DHOST_VALOR" ]]; then
+    break
+  fi
+  echo -e "${RED}❌ El campo no puede estar vacío.${NC}"
+done
 
 # Confirmación
 echo -e "\n🔧 Editando: ${GREEN}$SERVICIO_SELECCIONADO${NC} en ${CYAN}$REGION_SELECCIONADA${NC}"
-echo -e "  ⏱️ Timeout      : 3600 segundos"
-echo -e "  📈 Concurrency  : 100"
-echo -e "  🌐 Variable DHOST: $DHOST_VALOR"
-echo -e "  📦 Variable DPORT: 22"
 
 # Aplicar cambios
 echo -e "${CYAN}"
