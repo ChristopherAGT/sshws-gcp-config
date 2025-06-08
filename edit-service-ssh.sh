@@ -102,7 +102,7 @@ echo
 while true; do
   read -p "🌐 Ingrese su nuevo subdominio personalizado (cloudflare): " DHOST_VALOR
   if [[ -z "$DHOST_VALOR" ]]; then
-    echo -e "${RED}❌ El campo no puede estar vacío.${NC}"
+    echo -e "${RED}⚠️ Por favor, escriba un subdominio antes de continuar.${NC}"
     continue
   fi
   if [[ ! "$DHOST_VALOR" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
@@ -146,7 +146,7 @@ if [ $? -eq 0 ]; then
   REGIONAL_DOMAIN="https://${SERVICIO_SELECCIONADO}-${PROJECT_NUMBER}.${REGION_SELECCIONADA}.run.app"
 
   # Mostrar resultado final
-  echo -e "🌐 URL del servicio   : ${CYAN}${SERVICE_URL}${NC}"
+  echo -e "🌐 Dominio clásico    : ${CYAN}${SERVICE_URL}${NC}"
   echo -e "🌐 Dominio regional   : ${CYAN}${REGIONAL_DOMAIN}${NC}"
 else
   echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
