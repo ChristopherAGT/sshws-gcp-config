@@ -49,6 +49,20 @@ REGIONS=(
   "me-west1"
 )
 
+# Función para mostrar el spinner
+spinner() {
+  local pid=$1
+  local delay=0.75
+  local spin='/-\|'
+  local i=0
+  while kill -0 $pid 2>/dev/null; do
+    i=$(( (i+1) % 4 ))
+    printf "\rBuscando servicios en Cloud Run... ${spin:i:1}"
+    sleep $delay
+  done
+  printf "\rListo!                          \n"
+}
+
 # Encabezado
 echo -e "${CYAN}"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -60,27 +74,34 @@ echo -e "${NC}"
 SERVICIOS=()
 INFO_SERVICIOS=()
 
-for region in "${REGIONS[@]}"; do
+# Iniciar el proceso de búsqueda en segundo plano
+(
+  for region in "${REGIONS[@]}"; do
     output=$(gcloud run services list --platform=managed --region="$region" --format="value(metadata.name)" 2>/dev/null)
     while read -r service; do
-        if [[ -n "$service" ]]; then
-            SERVICIOS+=("$service")
-            INFO_SERVICIOS+=("$service|$region")
-        fi
+      if [[ -n "$service" ]]; then
+        SERVICIOS+=("$service")
+        INFO_SERVICIOS+=("$service|$region")
+      fi
     done <<< "$output"
-done
+  done
+) &
+pid=$!
+
+# Mostrar el spinner mientras se ejecuta el proceso
+spinner $pid
 
 # Validación
 if [ ${#SERVICIOS[@]} -eq 0 ]; then
-    echo -e "${RED}❌ No se encontraron servicios en Cloud Run.${NC}"
-    exit 1
+  echo -e "${RED}❌ No se encontraron servicios en Cloud Run.${NC}"
+  exit 1
 fi
 
 # Mostrar servicios
 echo -e "${YELLOW}Servicios disponibles:${NC}"
 for i in "${!SERVICIOS[@]}"; do
-    region=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$i]}")
-    echo -e "  [$i] ${GREEN}${SERVICIOS[$i]}${NC} (${CYAN}${region}${NC})"
+  region=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$i]}")
+  echo -e "  [$i] ${GREEN}${SERVICIOS[$i]}${NC} (${CYAN}${region}${NC})"
 done
 
 # Selección
@@ -88,8 +109,8 @@ echo
 read -p "👉 Selecciona el número del servicio que deseas editar: " seleccion
 
 if ! [[ "$seleccion" =~ ^[0-9]+$ ]] || [ "$seleccion" -ge "${#SERVICIOS[@]}" ]; then
-    echo -e "${RED}❌ Selección inválida.${NC}"
-    exit 1
+  echo -e "${RED}❌ Selección inválida.${NC}"
+  exit 1
 fi
 
 # Extraer nombre y región
@@ -101,8 +122,8 @@ echo
 read -p "🌐 Agregue su subdominio personalizado (valor para DHOST): " DHOST_VALOR
 
 if [[ -z "$DHOST_VALOR" ]]; then
-    echo -e "${RED}❌ El valor de DHOST no puede estar vacío.${NC}"
-    exit 1
+  echo -e "${RED}❌ El valor de DHOST no puede estar vacío.${NC}"
+  exit 1
 fi
 
 # Confirmación
@@ -130,16 +151,16 @@ gcloud run services update "$SERVICIO_SELECCIONADO" \
 
 # Verificación
 if [ $? -eq 0 ]; then
-    echo -e "\n✅ ${GREEN}Todos los cambios se aplicaron correctamente.${NC}"
+  echo -e "\n✅ ${GREEN}Todos los cambios se aplicaron correctamente.${NC}"
 
-    # Mostrar URL del servicio
-    SERVICE_URL=$(gcloud run services describe "$SERVICIO_SELECCIONADO" \
-      --region="$REGION_SELECCIONADA" --platform=managed \
-      --format="value(status.url)")
+  # Mostrar URL del servicio
+  SERVICE_URL=$(gcloud run services describe "$SERVICIO_SELECCIONADO" \
+    --region="$REGION_SELECCIONADA" --platform=managed \
+    --format="value(status.url)")
 
-    if [[ -n "$SERVICE_URL" ]]; then
-        echo -e "🌐 URL del servicio: ${CYAN}${SERVICE_URL}${NC}"
-    fi
+  if [[ -n "$SERVICE_URL" ]]; then
+    echo -e "🌐 URL del servicio: ${CYAN}${SERVICE_URL}${NC}"
+  fi
 else
-    echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
+  echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
 fi
