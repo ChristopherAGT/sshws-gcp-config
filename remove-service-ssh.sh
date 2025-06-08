@@ -116,37 +116,40 @@ fi
 if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
 
-    # Obtener el digest (desde tag o directamente)
+    # Obtener el digest
     if [[ "$SEP" == ":" ]]; then
         DIGEST=$(gcloud artifacts docker images describe "$FULL_PATH:$TAG_OR_DIGEST" --format="value(image_summary.digest)" 2>/dev/null)
     else
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    # Obtener los tags asociados al digest
+    # Obtener tags asociados al digest
     TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
         --filter="image_summary.digest:$DIGEST" \
-        --format="value(tags[])" 2>/dev/null)
+        --format="get(tags)" 2>/dev/null)
 
+    # Eliminar los tags si existen
     if [[ -n "$TAGS" ]]; then
-        for TAG in $TAGS; do
-            echo -e "${CYAN}🧹 Eliminando tag: ${TAG}${RESET}"
-            gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
-        done
+        echo -e "${CYAN}🧹 Eliminando tags asociados al digest:${RESET}"
+        while IFS= read -r TAG; do
+            [[ -n "$TAG" ]] && gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet && \
+            echo -e "   🗑️  Tag eliminado: ${TAG}"
+        done <<< "$TAGS"
     else
         echo -e "${YELLOW}⚠️ No se encontraron tags asociados al digest.${RESET}"
     fi
 
-    # Verificar si todavía hay tags apuntando al digest
-    TAGS_REMAINING=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
+    # Verificar que ya no hay tags antes de eliminar digest
+    REMAINING=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
         --filter="image_summary.digest:$DIGEST" \
-        --format="value(tags[])" 2>/dev/null)
+        --format="get(tags)" 2>/dev/null)
 
-    if [[ -z "$TAGS_REMAINING" ]]; then
+    if [[ -z "$REMAINING" ]]; then
         echo -e "${CYAN}🧹 Eliminando digest: ${DIGEST}${RESET}"
-        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
+        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet && \
+        echo -e "${GREEN}✅ Digest eliminado correctamente.${RESET}"
     else
-        echo -e "${YELLOW}⚠️ Digest aún tiene tags asociados, no se eliminará: ${DIGEST}${RESET}"
+        echo -e "${RED}❌ Digest aún tiene tags activos. No se eliminó.${RESET}"
     fi
 fi
 
