@@ -3,18 +3,50 @@
 # Colores
 CYAN="\e[36m" ; GREEN="\e[32m" ; YELLOW="\e[33m" ; RED="\e[31m" ; NC="\e[0m"
 
-# Lista de regiones de Cloud Run
+# Lista de regiones de Cloud Run (ordenadas según tu solicitud)
 REGIONS=(
-  "asia-east1" "asia-east2" "asia-northeast1" "asia-northeast2" "asia-northeast3"
-  "asia-south1" "asia-south2" "asia-southeast1" "asia-southeast2"
-  "australia-southeast1" "australia-southeast2"
-  "europe-central2" "europe-north1" "europe-west1" "europe-west2" "europe-west3"
-  "europe-west4" "europe-west6"
-  "me-west1" "me-central1"
-  "northamerica-northeast1" "northamerica-northeast2"
-  "southamerica-east1" "southamerica-west1"
-  "us-central1" "us-east1" "us-east4" "us-east5"
-  "us-south1" "us-west1" "us-west2" "us-west3" "us-west4"
+  "africa-south1"
+  "northamerica-northeast1"
+  "northamerica-northeast2"
+  "northamerica-south1"
+  "southamerica-east1"
+  "southamerica-west1"
+  "us-central1"
+  "us-east1"
+  "us-east4"
+  "us-east5"
+  "us-south1"
+  "us-west1"
+  "us-west2"
+  "us-west3"
+  "us-west4"
+  "asia-east1"
+  "asia-east2"
+  "asia-northeast1"
+  "asia-northeast2"
+  "asia-northeast3"
+  "asia-south1"
+  "asia-south2"
+  "asia-southeast1"
+  "asia-southeast2"
+  "australia-southeast1"
+  "australia-southeast2"
+  "europe-central2"
+  "europe-north1"
+  "europe-north2"
+  "europe-southwest1"
+  "europe-west1"
+  "europe-west2"
+  "europe-west3"
+  "europe-west4"
+  "europe-west6"
+  "europe-west8"
+  "europe-west9"
+  "europe-west10"
+  "europe-west12"
+  "me-central1"
+  "me-central2"
+  "me-west1"
 )
 
 # Encabezado
@@ -68,6 +100,11 @@ REGION_SELECCIONADA=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$seleccion]}")
 echo
 read -p "🌐 Agregue su subdominio personalizado (valor para DHOST): " DHOST_VALOR
 
+if [[ -z "$DHOST_VALOR" ]]; then
+    echo -e "${RED}❌ El valor de DHOST no puede estar vacío.${NC}"
+    exit 1
+fi
+
 # Confirmación
 echo -e "\n🔧 Editando: ${GREEN}$SERVICIO_SELECCIONADO${NC} en ${CYAN}$REGION_SELECCIONADA${NC}"
 echo -e "  ⏱️ Timeout      : 3600 segundos"
@@ -76,6 +113,8 @@ echo -e "  🌐 Variable DHOST: $DHOST_VALOR"
 echo -e "  📦 Variable DPORT: 22"
 
 # Aplicar cambios
+ENV_VARS="DHOST=${DHOST_VALOR},DPORT=22"
+
 echo -e "${CYAN}"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo    "🚀 APLICANDO CAMBIOS AL SERVICIO"
@@ -87,11 +126,20 @@ gcloud run services update "$SERVICIO_SELECCIONADO" \
   --platform=managed \
   --timeout=3600s \
   --concurrency=100 \
-  --update-env-vars="DHOST=${DHOST_VALOR},DPORT=22"
+  --update-env-vars="$ENV_VARS"
 
 # Verificación
 if [ $? -eq 0 ]; then
     echo -e "\n✅ ${GREEN}Todos los cambios se aplicaron correctamente.${NC}"
+
+    # Mostrar URL del servicio
+    SERVICE_URL=$(gcloud run services describe "$SERVICIO_SELECCIONADO" \
+      --region="$REGION_SELECCIONADA" --platform=managed \
+      --format="value(status.url)")
+
+    if [[ -n "$SERVICE_URL" ]]; then
+        echo -e "🌐 URL del servicio: ${CYAN}${SERVICE_URL}${NC}"
+    fi
 else
     echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
 fi
