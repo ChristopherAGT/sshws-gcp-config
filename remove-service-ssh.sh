@@ -27,7 +27,7 @@ fi
 
 # Crear archivo temporal para resultados y eliminarlo al salir junto con este script
 tmpfile=$(mktemp)
-trap 'rm -f -- "$0" "$tmpfile"' EXIT
+trap 'rm -f -- "$0" "$tmpfile"; rm -rf "$TMP_DIR"' EXIT
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -61,13 +61,12 @@ done
 
 spinner_pid=$!
 
-wait  # Esperar que terminen los procesos en background (las búsquedas)
+wait  # Esperar que terminen los procesos en background
 
 wait $spinner_pid 2>/dev/null
 
 # Procesar resultados y llenar array de servicios
 declare -a SERVICES_INFO
-INDEX=1
 
 for REGION in "${REGIONS[@]}"; do
     FILE="$TMP_DIR/$REGION.json"
@@ -93,17 +92,16 @@ for REGION in "${REGIONS[@]}"; do
 done
 
 # Mostrar menú con opción 0 primero
-echo -e "${YELLOW}0)${RESET} ${BOLD}Cancelar / Salir${RESET}"
-
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
-    rm -rf "$TMP_DIR"
     exit 0
 fi
 
+echo -e "${YELLOW}[0]${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
+
 for (( i=0; i<${#SERVICES_INFO[@]}; i++ )); do
     IFS='|' read -r SERVICE REGION IMAGE_NAME SEP TAG_OR_DIGEST REPO_NAME REPO_REGION <<< "${SERVICES_INFO[i]}"
-    echo -e "${YELLOW}$((i+1)))${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
+    echo -e "${YELLOW}[$((i+1))]${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
 done
 
 # Bucle hasta selección válida
@@ -113,7 +111,6 @@ while true; do
 
     if [[ "$SELECCION" == "0" ]]; then
         echo -e "${CYAN}👋 Operación cancelada por el usuario.${RESET}"
-        rm -rf "$TMP_DIR"
         exit 0
     fi
 
@@ -177,8 +174,5 @@ if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
     echo -e "${CYAN}🧹 Eliminando repositorio...${RESET}"
     gcloud artifacts repositories delete "$SELECTED_REPO" --location="$REPO_REGION" --quiet
 fi
-
-# Limpieza final
-rm -rf "$TMP_DIR"
 
 echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
