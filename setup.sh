@@ -325,7 +325,7 @@ while true; do
 
     echo -e "${verde}✅ Se ingresó el subdominio: $DHOST${neutro}"
     echo    # 🟦 Línea en blanco para separación visual
-    echo -ne "${cyan}¿Desea continuar con este subdominio? (s/N): ${neutro}"
+    echo -ne "${cyan}¿Desea continuar con este subdominio? (s/n): ${neutro}"
     read -r CONFIRMAR
     CONFIRMAR=${CONFIRMAR,,}  # Convertir a minúscula
 
