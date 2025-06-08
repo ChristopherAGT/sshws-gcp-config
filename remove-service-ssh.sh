@@ -65,13 +65,17 @@ while IFS= read -r ENTRY; do
     continue
   fi
 
-  if [[ "$IMAGE" =~ ^(.+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:]+)([@:])(.+)$ ]]; then
-    REPO_REGION="${BASH_REMATCH[1]}"
-    PROJECT="${BASH_REMATCH[2]}"
-    REPO_NAME="${BASH_REMATCH[3]}"
-    IMAGE_NAME="${BASH_REMATCH[4]}"
-    SEP="${BASH_REMATCH[5]}"
-    TAG_OR_DIGEST="${BASH_REMATCH[6]}"
+  # Extraer datos de la imagen con método robusto
+  # Formato esperado: <region>-docker.pkg.dev/<project>/<repo>/<image>[:|@]<tag_or_digest>
+  REPO_REGION=$(echo "$IMAGE" | cut -d'.' -f1)
+  PROJECT=$(echo "$IMAGE" | cut -d'/' -f2)
+  REPO_NAME=$(echo "$IMAGE" | cut -d'/' -f3)
+  IMAGE_TAG=$(echo "$IMAGE" | cut -d'/' -f4)
+
+  if [[ "$IMAGE_TAG" =~ ^([^@:]+)([@:])(.+)$ ]]; then
+    IMAGE_NAME="${BASH_REMATCH[1]}"
+    SEP="${BASH_REMATCH[2]}"
+    TAG_OR_DIGEST="${BASH_REMATCH[3]}"
   else
     continue
   fi
@@ -136,21 +140,25 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    TAGS_JSON=$(gcloud artifacts docker images list-tags "$FULL_PATH" --filter="image_summary.digest=$DIGEST" --format="json" 2>/dev/null)
-TAGS=($(echo "$TAGS_JSON" | jq -r '.[].tags[]' 2>/dev/null))
+    if [[ -z "$DIGEST" ]]; then
+      printf "${RED}⚠️ No se pudo obtener el digest para la imagen %s%s%s.%s\n${RESET}" "$FULL_PATH" "$SEP" "$TAG_OR_DIGEST" ""
+    else
+      TAGS_JSON=$(gcloud artifacts docker images list-tags "$FULL_PATH" --filter="image_summary.digest=$DIGEST" --format="json" 2>/dev/null)
+      mapfile -t TAGS < <(echo "$TAGS_JSON" | jq -r '.[].tags[]' 2>/dev/null)
 
-if [[ ${#TAGS[@]} -gt 0 ]]; then
-  for TAG in "${TAGS[@]}"; do
-    echo -e "${CYAN}🧹 Eliminando tag: ${TAG}${RESET}"
-    gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
-  done
-else
-  echo -e "${YELLOW}⚠️ No se encontraron tags para eliminar en este digest.${RESET}"
-fi
+      if [[ ${#TAGS[@]} -gt 0 ]]; then
+        for TAG in "${TAGS[@]}"; do
+          printf "${CYAN}🧹 Eliminando tag: %s${RESET}\n" "$TAG"
+          gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet || printf "${RED}⚠️ Error al eliminar tag %s${RESET}\n" "$TAG"
+        done
+      else
+        printf "${YELLOW}⚠️ No se encontraron tags para eliminar en este digest.${RESET}\n"
+      fi
 
-    echo -e "${CYAN}🧹 Eliminando digest: $DIGEST${RESET}"
-    gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet || \
-        echo -e "${RED}⚠️ No se pudo eliminar el digest. Puede que todavía tenga etiquetas.${RESET}"
+      printf "${CYAN}🧹 Eliminando digest: %s${RESET}\n" "$DIGEST"
+      gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet || \
+          printf "${RED}⚠️ No se pudo eliminar el digest. Puede que todavía tenga etiquetas.${RESET}\n"
+    fi
 fi
 
 if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
