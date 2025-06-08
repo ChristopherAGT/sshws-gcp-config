@@ -110,8 +110,9 @@ while true; do
     continue
   fi
 
-  echo
-  read -p "❓ ¿Estás seguro de que deseas usar '${CYAN}${DHOST_VALOR}${NC}' como nuevo subdominio? (s/n): " confirm
+  echo -e "\n❓ ¿Estás seguro de que deseas usar el siguiente subdominio?"
+  echo -e "   👉 ${CYAN}${DHOST_VALOR}${NC}"
+  read -p "   Confirmar (s/n): " confirm
   if [[ "$confirm" =~ ^[sS]$ ]]; then
     break
   else
