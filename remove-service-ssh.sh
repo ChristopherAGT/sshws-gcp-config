@@ -25,9 +25,11 @@ if ! command -v jq &>/dev/null; then
     exit 1
 fi
 
-# Crear directorio temporal para archivos por región y eliminarlo junto con este script al salir
+# Crear directorio temporal para archivos por región
 TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"; rm -f -- "$0"' EXIT
+
+# Eliminar este script y directorio temporal automáticamente al salir
+trap 'rm -f -- "$0"; rm -rf "$TMP_DIR"' EXIT
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -58,20 +60,21 @@ done
 
 spinner_pid=$!
 
-# Esperar que terminen los procesos en background (las búsquedas)
-wait
+wait  # Esperar que terminen los procesos en background (las búsquedas)
 
-# Esperar que termine el spinner
 wait $spinner_pid 2>/dev/null
 
 # Procesar resultados y llenar array de servicios
 declare -a SERVICES_INFO
+INDEX=1
+
 for REGION in "${REGIONS[@]}"; do
     FILE="$TMP_DIR/$REGION.json"
     if [[ -s "$FILE" && $(< "$FILE") != "[]" ]]; then
         SERVICE_NAMES=$(jq -r '.[].metadata.name' "$FILE")
         for SERVICE in $SERVICE_NAMES; do
             IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)" 2>/dev/null)
+
             if [[ "$IMAGE" =~ ^(.+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:]+)([@:])(.+)$ ]]; then
                 REPO_REGION="${BASH_REMATCH[1]}"
                 PROJECT="${BASH_REMATCH[2]}"
@@ -82,16 +85,18 @@ for REGION in "${REGIONS[@]}"; do
             else
                 continue
             fi
+
             SERVICES_INFO+=("$SERVICE|$REGION|$IMAGE_NAME|$SEP|$TAG_OR_DIGEST|$REPO_NAME|$REPO_REGION")
         done
     fi
 done
 
 # Mostrar menú con opción 0 primero
-echo -e "${YELLOW}[0]${RESET} ${BOLD}Cancelar / Salir${RESET}"
+echo -e "${YELLOW}0)${RESET} ${BOLD}Cancelar / Salir${RESET}"
 
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
+    rm -rf "$TMP_DIR"
     exit 0
 fi
 
@@ -107,6 +112,7 @@ while true; do
 
     if [[ "$SELECCION" == "0" ]]; then
         echo -e "${CYAN}👋 Operación cancelada por el usuario.${RESET}"
+        rm -rf "$TMP_DIR"
         exit 0
     fi
 
@@ -144,11 +150,12 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    if [[ -z "$DIGEST" ]]; then
+    if [[ -z "$DIGEST" || "$DIGEST" == "null" ]]; then
         echo -e "${RED}❌ No se pudo encontrar el digest para la imagen con tag ${BOLD}$TAG_OR_DIGEST${RESET}"
     else
         echo -e "${GREEN}✅ Digest encontrado:${RESET} ${DIGEST}"
         TAGS=$(echo "$IMAGE_LIST" | jq -r --arg D "$DIGEST" '.[] | select(.digest == $D) | .tags[]?')
+
         if [[ -z "$TAGS" ]]; then
             echo -e "${YELLOW}⚠️  No se encontraron tags asociados al digest.${RESET}"
         else
@@ -157,6 +164,7 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
                 gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
             done
         fi
+
         echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
         gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
     fi
@@ -168,4 +176,6 @@ if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
 fi
 
 # Limpieza final
+rm -rf "$TMP_DIR"
+
 echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
