@@ -136,13 +136,17 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" --filter="image_summary.digest=$DIGEST" --format="value(tags[])" 2>/dev/null)
-    IFS=$'\n'
-    for TAG in $TAGS; do
-        echo -e "${CYAN}🧹 Eliminando tag: ${TAG}${RESET}"
-        gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
-    done
-    unset IFS
+    TAGS_JSON=$(gcloud artifacts docker images list-tags "$FULL_PATH" --filter="image_summary.digest=$DIGEST" --format="json" 2>/dev/null)
+TAGS=($(echo "$TAGS_JSON" | jq -r '.[].tags[]' 2>/dev/null))
+
+if [[ ${#TAGS[@]} -gt 0 ]]; then
+  for TAG in "${TAGS[@]}"; do
+    echo -e "${CYAN}🧹 Eliminando tag: ${TAG}${RESET}"
+    gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
+  done
+else
+  echo -e "${YELLOW}⚠️ No se encontraron tags para eliminar en este digest.${RESET}"
+fi
 
     echo -e "${CYAN}🧹 Eliminando digest: $DIGEST${RESET}"
     gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet || \
