@@ -97,7 +97,7 @@ if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     exit 0
 fi
 
-echo -e "${YELLOW}[0]${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
+echo -e "${YELLOW}[0]${RESET} ${BOLD}Salir${RESET}"
 
 for (( i=0; i<${#SERVICES_INFO[@]}; i++ )); do
     IFS='|' read -r SERVICE REGION IMAGE_NAME SEP TAG_OR_DIGEST REPO_NAME REPO_REGION <<< "${SERVICES_INFO[i]}"
