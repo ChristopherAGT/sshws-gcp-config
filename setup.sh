@@ -317,14 +317,16 @@ while true; do
     read -p "🌐 Ingrese su subdominio personalizado (Cloudflare): " DHOST
     echo -e "${neutro}"
 
-    # Validar que no esté vacío y tenga al menos un punto
+    # Validar que no esté vacío, tenga al menos un punto, y no tenga espacios
     if [[ -z "$DHOST" || "$DHOST" != *.* || "$DHOST" == *" "* ]]; then
         echo -e "${rojo}❌ El subdominio no puede estar vacío, debe contener al menos un punto y no tener espacios.${neutro}"
         continue
     fi
 
     echo -e "${verde}✅ Se ingresó el subdominio: $DHOST${neutro}"
-    read -p "¿Desea continuar con este subdominio? (s/N): " CONFIRMAR
+    echo    # 🟦 Línea en blanco para separación visual
+    echo -ne "${cyan}¿Desea continuar con este subdominio? (s/N): ${neutro}"
+    read -r CONFIRMAR
     CONFIRMAR=${CONFIRMAR,,}  # Convertir a minúscula
 
     if [[ "$CONFIRMAR" == "s" ]]; then
