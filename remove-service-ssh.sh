@@ -8,23 +8,12 @@ YELLOW="\e[33m"
 RESET="\e[0m"
 BOLD="\e[1m"
 
-# Validar que gcloud esté instalado
-command -v gcloud >/dev/null 2>&1 || { echo -e "${RED}❌ gcloud no está instalado.${RESET}"; exit 1; }
-
-# Regiones a revisar (todas las disponibles)
-REGIONS=(
-  "africa-south1" "northamerica-northeast1" "northamerica-northeast2" "northamerica-south1"
-  "southamerica-east1" "southamerica-west1" "us-central1" "us-east1" "us-east4" "us-east5"
-  "us-south1" "us-west1" "us-west2" "us-west3" "us-west4" "asia-east1" "asia-east2"
-  "asia-northeast1" "asia-northeast2" "asia-northeast3" "asia-south1" "asia-south2"
-  "asia-southeast1" "asia-southeast2" "australia-southeast1" "australia-southeast2"
-  "europe-central2" "europe-north1" "europe-north2" "europe-southwest1" "europe-west1"
-  "europe-west2" "europe-west3" "europe-west4" "europe-west6" "europe-west8" "europe-west9"
-  "europe-west10" "europe-west12" "me-central1" "me-central2" "me-west1"
-)
+# Regiones a revisar
+REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
 
 # Obtener el proyecto actual
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
 if [[ -z "$PROJECT_ID" ]]; then
     echo -e "${RED}❌ No se pudo obtener el ID del proyecto de GCP.${RESET}"
     exit 1
@@ -36,86 +25,79 @@ echo "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
-# Array para guardar resultados
+# Archivos temporales
+TMP_DIR=$(mktemp -d)
 declare -a SERVICES_INFO
 INDEX=1
 
-# Archivo temporal para almacenar resultados
-TMP_FILE=$(mktemp)
+# Función para procesar una región
+buscar_servicios_en_region() {
+    REGION=$1
+    TMP_FILE="$TMP_DIR/$REGION.json"
+    gcloud run services list --platform managed --region "$REGION" --format="json" > "$TMP_FILE" 2>/dev/null
+}
 
-# Paralelizar búsquedas y almacenar en archivo temporal
+# Lanzar procesos en paralelo
 for REGION in "${REGIONS[@]}"; do
-  (
-    SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format="json" 2>/dev/null)
-    if [[ "$SERVICES" != "[]" ]]; then
-      echo "$SERVICES" | jq -c ".[] | {region: \"$REGION\", name: .metadata.name}" >> "$TMP_FILE"
-    fi
-  ) &
+    buscar_servicios_en_region "$REGION" &
 done
-wait
 
-# Procesar resultados
-while IFS= read -r ENTRY; do
-  REGION=$(echo "$ENTRY" | jq -r '.region')
-  SERVICE=$(echo "$ENTRY" | jq -r '.name')
-  IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)" 2>/dev/null)
+wait  # Esperar que todas las regiones terminen
 
-  if [[ -z "$IMAGE" ]]; then
-    echo -e "${YELLOW}⚠️ No se pudo obtener la imagen del servicio ${SERVICE} en ${REGION}.${RESET}"
-    continue
-  fi
+# Procesar resultados consolidados
+for REGION in "${REGIONS[@]}"; do
+    FILE="$TMP_DIR/$REGION.json"
+    if [[ -s "$FILE" && $(< "$FILE") != "[]" ]]; then
+        SERVICE_NAMES=$(jq -r '.[].metadata.name' "$FILE")
+        for SERVICE in $SERVICE_NAMES; do
+            IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)")
+            
+            if [[ "$IMAGE" =~ ^(.+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:]+)([@:])(.+)$ ]]; then
+                REPO_REGION="${BASH_REMATCH[1]}"
+                PROJECT="${BASH_REMATCH[2]}"
+                REPO_NAME="${BASH_REMATCH[3]}"
+                IMAGE_NAME="${BASH_REMATCH[4]}"
+                SEP="${BASH_REMATCH[5]}"
+                TAG_OR_DIGEST="${BASH_REMATCH[6]}"
+            else
+                continue
+            fi
 
-  # Extraer datos de la imagen con método robusto
-  # Formato esperado: <region>-docker.pkg.dev/<project>/<repo>/<image>[:|@]<tag_or_digest>
-  REPO_REGION=$(echo "$IMAGE" | cut -d'.' -f1)
-  PROJECT=$(echo "$IMAGE" | cut -d'/' -f2)
-  REPO_NAME=$(echo "$IMAGE" | cut -d'/' -f3)
-  IMAGE_TAG=$(echo "$IMAGE" | cut -d'/' -f4)
+            SERVICES_INFO+=("$SERVICE|$REGION|$IMAGE_NAME|$SEP|$TAG_OR_DIGEST|$REPO_NAME|$REPO_REGION")
+            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
+            ((INDEX++))
+        done
+    fi
+done
 
-  if [[ "$IMAGE_TAG" =~ ^([^@:]+)([@:])(.+)$ ]]; then
-    IMAGE_NAME="${BASH_REMATCH[1]}"
-    SEP="${BASH_REMATCH[2]}"
-    TAG_OR_DIGEST="${BASH_REMATCH[3]}"
-  else
-    continue
-  fi
-
-  SERVICES_INFO+=("$SERVICE|$REGION|$IMAGE_NAME|$SEP|$TAG_OR_DIGEST|$REPO_NAME|$REPO_REGION")
-  echo -e "${YELLOW}${INDEX})${RESET} ${BOLD}${SERVICE}${RESET} (${REGION})   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
-  ((INDEX++))
-done < "$TMP_FILE"
-
-rm -f "$TMP_FILE"
-
-# Si no hay servicios
+# Agregar opción de salida
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
     exit 0
 fi
 
-echo -e "${CYAN}🔎 Se encontraron ${#SERVICES_INFO[@]} servicios en total.${RESET}"
+echo -e "${YELLOW}0)${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
 
-# Mostrar opción de salir
-echo -e "${YELLOW}0)${RESET} ${BOLD}❌ Salir sin hacer cambios${RESET}"
-
-# Leer selección
+# Bucle hasta selección válida
 while true; do
-  echo -e ""
-  read -rp "${BOLD}Seleccione el número del servicio a gestionar (0 para salir): ${RESET}" SELECCION
+    echo -ne "\n${BOLD}Seleccione el número del servicio a gestionar (0 para salir): ${RESET}"
+    read -r SELECCION
 
-  if [[ "$SELECCION" == "0" ]]; then
-    echo -e "${CYAN}🚪 Saliendo sin cambios...${RESET}"
-    exit 0
-  elif [[ "$SELECCION" =~ ^[0-9]+$ ]] && (( SELECCION > 0 && SELECCION <= ${#SERVICES_INFO[@]} )); then
-    break
-  else
-    echo -e "${RED}❌ Selección inválida. Intente nuevamente.${RESET}"
-  fi
+    if [[ "$SELECCION" == "0" ]]; then
+        echo -e "${CYAN}👋 Operación cancelada por el usuario.${RESET}"
+        rm -rf "$TMP_DIR"
+        exit 0
+    fi
+
+    if [[ "$SELECCION" =~ ^[0-9]+$ && "$SELECCION" -gt 0 && "$SELECCION" -le "${#SERVICES_INFO[@]}" ]]; then
+        break
+    fi
+
+    echo -e "${RED}❌ Selección inválida. Intente de nuevo.${RESET}"
 done
 
-# Extraer selección
-INDEX=$((SELECCION - 1))
-IFS='|' read -r SELECTED_SERVICE SELECTED_REGION IMAGE_NAME SEP TAG_OR_DIGEST SELECTED_REPO REPO_REGION <<< "${SERVICES_INFO[$INDEX]}"
+SELECCION=$((SELECCION - 1))
+IFS='|' read -r SELECTED_SERVICE SELECTED_REGION IMAGE_NAME SEP TAG_OR_DIGEST SELECTED_REPO REPO_REGION <<< "${SERVICES_INFO[$SELECCION]}"
 
 echo -e "\n🛠️  ${BOLD}Opciones de eliminación para:${RESET}"
 echo -e "   🔹 Servicio: ${BOLD}${SELECTED_SERVICE}${RESET} (${SELECTED_REGION})"
@@ -134,30 +116,37 @@ fi
 if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
 
+    # Obtener el digest (desde tag o directamente)
     if [[ "$SEP" == ":" ]]; then
         DIGEST=$(gcloud artifacts docker images describe "$FULL_PATH:$TAG_OR_DIGEST" --format="value(image_summary.digest)" 2>/dev/null)
     else
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    if [[ -z "$DIGEST" ]]; then
-      printf "${RED}⚠️ No se pudo obtener el digest para la imagen %s%s%s.%s\n${RESET}" "$FULL_PATH" "$SEP" "$TAG_OR_DIGEST" ""
-    else
-      TAGS_JSON=$(gcloud artifacts docker images list-tags "$FULL_PATH" --filter="image_summary.digest=$DIGEST" --format="json" 2>/dev/null)
-      mapfile -t TAGS < <(echo "$TAGS_JSON" | jq -r '.[].tags[]' 2>/dev/null)
+    # Obtener los tags asociados al digest
+    TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
+        --filter="image_summary.digest:$DIGEST" \
+        --format="value(tags[])" 2>/dev/null)
 
-      if [[ ${#TAGS[@]} -gt 0 ]]; then
-        for TAG in "${TAGS[@]}"; do
-          printf "${CYAN}🧹 Eliminando tag: %s${RESET}\n" "$TAG"
-          gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet || printf "${RED}⚠️ Error al eliminar tag %s${RESET}\n" "$TAG"
+    if [[ -n "$TAGS" ]]; then
+        for TAG in $TAGS; do
+            echo -e "${CYAN}🧹 Eliminando tag: ${TAG}${RESET}"
+            gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
         done
-      else
-        printf "${YELLOW}⚠️ No se encontraron tags para eliminar en este digest.${RESET}\n"
-      fi
+    else
+        echo -e "${YELLOW}⚠️ No se encontraron tags asociados al digest.${RESET}"
+    fi
 
-      printf "${CYAN}🧹 Eliminando digest: %s${RESET}\n" "$DIGEST"
-      gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet || \
-          printf "${RED}⚠️ No se pudo eliminar el digest. Puede que todavía tenga etiquetas.${RESET}\n"
+    # Verificar si todavía hay tags apuntando al digest
+    TAGS_REMAINING=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
+        --filter="image_summary.digest:$DIGEST" \
+        --format="value(tags[])" 2>/dev/null)
+
+    if [[ -z "$TAGS_REMAINING" ]]; then
+        echo -e "${CYAN}🧹 Eliminando digest: ${DIGEST}${RESET}"
+        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
+    else
+        echo -e "${YELLOW}⚠️ Digest aún tiene tags asociados, no se eliminará: ${DIGEST}${RESET}"
     fi
 fi
 
@@ -165,5 +154,8 @@ if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
     echo -e "${CYAN}🧹 Eliminando repositorio...${RESET}"
     gcloud artifacts repositories delete "$SELECTED_REPO" --location="$REPO_REGION" --quiet
 fi
+
+# Limpieza final
+rm -rf "$TMP_DIR"
 
 echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
