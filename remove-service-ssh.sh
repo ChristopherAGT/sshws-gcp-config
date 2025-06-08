@@ -9,7 +9,7 @@ RESET="\e[0m"
 BOLD="\e[1m"
 
 # Regiones a revisar (usa la lista que necesites)
-REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
+REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1" "us-west2")
 
 # Obtener el proyecto actual
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
@@ -93,7 +93,7 @@ for REGION in "${REGIONS[@]}"; do
 done
 
 # Mostrar menú con opción 0 primero
-echo -e "${YELLOW}0)${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
+echo -e "${YELLOW}0)${RESET} ${BOLD}Cancelar / Salir${RESET}"
 
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
