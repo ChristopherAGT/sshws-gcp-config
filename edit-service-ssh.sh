@@ -32,7 +32,7 @@ spinner() {
     printf "\r$(tput el)Buscando servicios en Cloud Run... ${spin:i:1}"
     sleep $delay
   done
-  printf "\r$(tput el)Listo!                          \n"
+  printf "\r$(tput el)✅️ ¡Listo!                      \n"
 }
 
 # Encabezado
