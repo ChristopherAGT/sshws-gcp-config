@@ -139,33 +139,13 @@ fi
 
 if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
-    IMAGE_LIST=$(gcloud artifacts docker images list "$FULL_PATH" --include-tags --format=json 2>/dev/null)
 
-    # Obtener digest
     if [[ "$SEP" == ":" ]]; then
-        DIGEST=$(echo "$IMAGE_LIST" | jq -r --arg TAG "$TAG_OR_DIGEST" '.[] | select(.tags[]? == $TAG) | .digest' | head -n1)
+        echo -e "${CYAN}🧹 Eliminando imagen con tag: ${BOLD}${TAG_OR_DIGEST}${RESET}"
+        gcloud artifacts docker images delete "$FULL_PATH:$TAG_OR_DIGEST" --quiet
     else
-        DIGEST="$TAG_OR_DIGEST"
-    fi
-
-    if [[ -z "$DIGEST" || "$DIGEST" == "null" ]]; then
-        echo -e "${RED}❌ No se pudo encontrar el digest para la imagen con ${BOLD}${SEP}${TAG_OR_DIGEST}${RESET}"
-    else
-        echo -e "${GREEN}✅ Digest encontrado:${RESET} ${DIGEST}"
-
-        TAGS=$(echo "$IMAGE_LIST" | jq -r --arg D "$DIGEST" '.[] | select(.digest == $D) | .tags[]?')
-
-        if [[ -n "$TAGS" ]]; then
-            for TAG in $TAGS; do
-                echo -e "${CYAN}🧹 Eliminando tag: ${BOLD}${TAG}${RESET}"
-                gcloud artifacts docker tags delete "$FULL_PATH:$TAG" --quiet
-            done
-        else
-            echo -e "${YELLOW}⚠️ No hay tags asociados a este digest.${RESET}"
-        fi
-
-        echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
-        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
+        echo -e "${RED}❌ No se puede eliminar una imagen referenciada por digest directamente sin tags asociados.${RESET}"
+        echo -e "${YELLOW}⚠️ Por favor, elimina manualmente desde la consola o crea un tag para eliminar.${RESET}"
     fi
 fi
 
