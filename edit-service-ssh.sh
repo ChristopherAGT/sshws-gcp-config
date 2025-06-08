@@ -97,7 +97,7 @@ done
 SERVICIO_SELECCIONADO=$(cut -d '|' -f1 <<< "${INFO_SERVICIOS[$seleccion]}")
 REGION_SELECCIONADA=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$seleccion]}")
 
-# Solicitar nuevo subdominio
+# Solicitar nuevo subdominio con validación y confirmación
 echo
 while true; do
   read -p "🌐 Ingrese su nuevo subdominio personalizado (cloudflare): " DHOST_VALOR
@@ -109,7 +109,14 @@ while true; do
     echo -e "${RED}❌ Subdominio inválido. Ej: ejemplo.com o sub.dominio.net${NC}"
     continue
   fi
-  break
+
+  echo
+  read -p "❓ ¿Estás seguro de que deseas usar '${CYAN}${DHOST_VALOR}${NC}' como nuevo subdominio? (s/n): " confirm
+  if [[ "$confirm" =~ ^[sS]$ ]]; then
+    break
+  else
+    echo -e "${YELLOW}↩️  Volvamos a intentarlo...${NC}"
+  fi
 done
 
 # Confirmación
