@@ -300,7 +300,7 @@ echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
 echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
 
-# 🚀 DESPLEGUE DEL SERVICIO EN CLOUD RUN
+# 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🌐 DESPLEGANDO SERVICIO EN CLOUD RUN"
@@ -311,7 +311,12 @@ echo -e "${neutro}"
 read -p "📛 Ingresa el nombre que deseas para el servicio en Cloud Run (default: rain): " SERVICE_NAME
 SERVICE_NAME=${SERVICE_NAME:-rain}
 
-# Obtener número de proyecto
+# 👉 Solicitar el subdominio personalizado para DHOST
+echo -e "${amarillo}"
+read -p "🌐 Ingrese su subdominio personalizado (cloudflare): " DHOST
+echo -e "${neutro}"
+
+# Obtener número de proyecto (por si lo necesitas después)
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
 # Ejecutar despliegue
@@ -321,9 +326,13 @@ SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
   --region "$REGION" \
   --allow-unauthenticated \
   --port 8080 \
+  --timeout 3600 \
+  --concurrency 100 \
+  --set-env-vars="DHOST=${DHOST},DPORT=22" \
   --quiet \
   --format="value(status.url)")
 
+# Verificar éxito del despliegue
 if [[ $? -ne 0 ]]; then
     echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
     exit 1
