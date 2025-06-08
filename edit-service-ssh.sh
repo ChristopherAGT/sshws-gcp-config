@@ -110,7 +110,7 @@ while true; do
     continue
   fi
 
-  echo -e "\n❓ ¿Estás seguro de que deseas usar el siguiente subdominio?"
+  echo -e "\n❓ ¿Esta seguro de que deseaa usar el siguiente subdominio?"
   echo -e "   👉 ${CYAN}${DHOST_VALOR}${NC}"
   read -p "   Confirmar (s/n): " confirm
   if [[ "$confirm" =~ ^[sS]$ ]]; then
@@ -154,8 +154,8 @@ if [ $? -eq 0 ]; then
   REGIONAL_DOMAIN="https://${SERVICIO_SELECCIONADO}-${PROJECT_NUMBER}.${REGION_SELECCIONADA}.run.app"
 
   # Mostrar resultado final
-  echo -e "🌐 Dominio clásico    : ${CYAN}${SERVICE_URL}${NC}"
-  echo -e "🌐 Dominio regional   : ${CYAN}${REGIONAL_DOMAIN}${NC}"
+  echo -e "🌐 Dominio Clásico    : ${CYAN}${SERVICE_URL}${NC}"
+  echo -e "🌐 Dominio Regional   : ${CYAN}${REGIONAL_DOMAIN}${NC}"
 else
   echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
 fi
