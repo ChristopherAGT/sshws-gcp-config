@@ -1,29 +1,17 @@
 #!/bin/bash
 
-# Colores y estilo con brillo/negrita
-RED="\e[1;31m"
-GREEN="\e[1;32m"
-CYAN="\e[1;36m"
-YELLOW="\e[1;33m"
+# Colores y estilo
+RED="\e[31m"
+GREEN="\e[32m"
+CYAN="\e[36m"
+YELLOW="\e[33m"
 RESET="\e[0m"
 BOLD="\e[1m"
 
-# Crear archivo temporal para regiones (se usa para sincronizar el proceso paralelo)
-tmpfile=$(mktemp)
+# Regiones a revisar (usa la lista que necesites)
+REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
 
-# Esta función elimina el archivo temporal y el propio script al salir (por cualquier razón)
-trap 'rm -f -- "$0" "$tmpfile"' EXIT
-
-# Definir regiones en el archivo temporal
-cat > "$tmpfile" << EOF
-us-central1
-us-east1
-us-west1
-europe-west1
-asia-east1
-EOF
-
-# Obtener proyecto actual
+# Obtener el proyecto actual
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 
 if [[ -z "$PROJECT_ID" ]]; then
@@ -31,10 +19,15 @@ if [[ -z "$PROJECT_ID" ]]; then
     exit 1
 fi
 
+# Validar que jq esté instalado
 if ! command -v jq &>/dev/null; then
     echo -e "${RED}❌ La herramienta 'jq' no está instalada. Instálala antes de continuar.${RESET}"
     exit 1
 fi
+
+# Crear archivo temporal para resultados y eliminarlo al salir junto con este script
+tmpfile=$(mktemp)
+trap 'rm -f -- "$0" "$tmpfile"' EXIT
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -42,53 +35,47 @@ echo "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
-# Archivos temporales para JSON y resultados
+# Crear directorio temporal para archivos por región
 TMP_DIR=$(mktemp -d)
+
+buscar_servicios_en_region() {
+    local REGION="$1"
+    gcloud run services list --platform managed --region "$REGION" --format="json" > "$TMP_DIR/$REGION.json" 2>/dev/null
+}
+
+# Lanzar búsquedas en paralelo
+for REGION in "${REGIONS[@]}"; do
+    buscar_servicios_en_region "$REGION" &
+done
+
+# Spinner mientras se ejecutan las búsquedas
+(
+  sp='-\|/'
+  i=0
+  while kill -0 $(jobs -p) 2>/dev/null; do
+    printf "\r${CYAN}Buscando servicios en regiones... %c${RESET}" "${sp:i++%${#sp}:1}"
+    sleep 0.1
+  done
+  printf "\r${GREEN}Búsqueda completada.            ${RESET}\n"
+) &
+
+spinner_pid=$!
+
+wait  # Esperar que terminen los procesos en background (las búsquedas)
+
+wait $spinner_pid 2>/dev/null
+
+# Procesar resultados y llenar array de servicios
 declare -a SERVICES_INFO
 INDEX=1
 
-# Función para buscar servicios en una región y guardar JSON
-buscar_servicios_en_region() {
-    local REGION=$1
-    local TMP_FILE="$TMP_DIR/$REGION.json"
-    gcloud run services list --platform managed --region "$REGION" --format="json" > "$TMP_FILE" 2>/dev/null
-}
-
-# Spinner para mostrar mientras se ejecutan procesos en paralelo
-spinner() {
-    local pid=$1
-    local delay=0.1
-    local spin='/-\|'
-    local i=0
-    while kill -0 "$pid" 2>/dev/null; do
-        i=$(( (i+1) % 4 ))
-        printf "\r$(tput el)Buscando servicios en Cloud Run... ${spin:i:1}"
-        sleep $delay
-    done
-    printf "\r$(tput el)✅️ ¡Listo!                            \n"
-}
-
-# Leer regiones del archivo tmpfile y lanzar búsquedas en paralelo
-while IFS= read -r REGION; do
-    buscar_servicios_en_region "$REGION" &
-done < "$tmpfile"
-bg_pid=$!
-
-spinner $bg_pid
-
-wait $bg_pid 2>/dev/null
-
-# Mostrar opción cancelar primero
-echo -e "${YELLOW}0)${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
-
-# Procesar resultados de cada región
-while IFS= read -r REGION; do
+for REGION in "${REGIONS[@]}"; do
     FILE="$TMP_DIR/$REGION.json"
     if [[ -s "$FILE" && $(< "$FILE") != "[]" ]]; then
         SERVICE_NAMES=$(jq -r '.[].metadata.name' "$FILE")
         for SERVICE in $SERVICE_NAMES; do
-            IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)")
-            
+            IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)" 2>/dev/null)
+
             if [[ "$IMAGE" =~ ^(.+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:]+)([@:])(.+)$ ]]; then
                 REPO_REGION="${BASH_REMATCH[1]}"
                 PROJECT="${BASH_REMATCH[2]}"
@@ -101,11 +88,12 @@ while IFS= read -r REGION; do
             fi
 
             SERVICES_INFO+=("$SERVICE|$REGION|$IMAGE_NAME|$SEP|$TAG_OR_DIGEST|$REPO_NAME|$REPO_REGION")
-            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
-            ((INDEX++))
         done
     fi
-done < "$tmpfile"
+done
+
+# Mostrar menú con opción 0 primero
+echo -e "${YELLOW}0)${RESET} ${BOLD}❌ Cancelar / Salir${RESET}"
 
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
@@ -113,6 +101,12 @@ if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     exit 0
 fi
 
+for (( i=0; i<${#SERVICES_INFO[@]}; i++ )); do
+    IFS='|' read -r SERVICE REGION IMAGE_NAME SEP TAG_OR_DIGEST REPO_NAME REPO_REGION <<< "${SERVICES_INFO[i]}"
+    echo -e "${YELLOW}$((i+1)))${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}${SEP}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
+done
+
+# Bucle hasta selección válida
 while true; do
     echo -ne "\n${BOLD}Seleccione el número del servicio a gestionar (0 para salir): ${RESET}"
     read -r SELECCION
@@ -162,7 +156,7 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
         echo -e "${RED}❌ No se pudo encontrar el digest para la imagen con tag ${BOLD}$TAG_OR_DIGEST${RESET}"
     else
         echo -e "${GREEN}✅ Digest encontrado:${RESET} ${DIGEST}"
-        
+
         TAGS=$(echo "$IMAGE_LIST" | jq -r --arg D "$DIGEST" '.[] | select(.digest == $D) | .tags[]?')
 
         if [[ -z "$TAGS" ]]; then
@@ -184,6 +178,7 @@ if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
     gcloud artifacts repositories delete "$SELECTED_REPO" --location="$REPO_REGION" --quiet
 fi
 
+# Limpieza final
 rm -rf "$TMP_DIR"
 
 echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
