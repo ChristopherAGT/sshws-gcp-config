@@ -17,7 +17,7 @@ REGIONS=(
   "us-south1" "us-west1" "us-west2" "us-west3" "us-west4"
 )
 
-# Función para mostrar el spinner mejorado
+# Función para mostrar el spinner
 spinner() {
   local pid=$1
   local delay=0.1
@@ -42,7 +42,7 @@ echo -e "${NC}"
 tmpfile=$(mktemp)
 trap "rm -f $tmpfile" EXIT
 
-# Buscar servicios en segundo plano y guardar resultados en tmpfile
+# Buscar servicios en segundo plano
 (
   for region in "${REGIONS[@]}"; do
     output=$(gcloud run services list --platform=managed --region="$region" --format="value(metadata.name)" 2>/dev/null)
@@ -55,10 +55,10 @@ trap "rm -f $tmpfile" EXIT
 ) > "$tmpfile" &
 pid=$!
 
-# Mostrar spinner mientras corre el proceso
+# Mostrar spinner
 spinner "$pid"
 
-# Leer resultados y llenar arrays
+# Leer resultados
 SERVICIOS=()
 INFO_SERVICIOS=()
 
@@ -74,7 +74,7 @@ if [ ${#SERVICIOS[@]} -eq 0 ]; then
   exit 1
 fi
 
-# Mostrar servicios desde [1]
+# Mostrar servicios
 echo -e "${YELLOW}Servicios disponibles:${NC}"
 for i in "${!SERVICIOS[@]}"; do
   num=$((i + 1))
@@ -82,7 +82,7 @@ for i in "${!SERVICIOS[@]}"; do
   echo -e "  [${num}] ${GREEN}${SERVICIOS[$i]}${NC} (${CYAN}${region}${NC})"
 done
 
-# Bucle para selección válida
+# Selección
 echo
 while true; do
   read -p "👉 Seleccione el servicio que desea editar: " seleccion
@@ -97,7 +97,7 @@ done
 SERVICIO_SELECCIONADO=$(cut -d '|' -f1 <<< "${INFO_SERVICIOS[$seleccion]}")
 REGION_SELECCIONADA=$(cut -d '|' -f2 <<< "${INFO_SERVICIOS[$seleccion]}")
 
-# Bucle para obtener un DHOST válido
+# Solicitar nuevo subdominio
 echo
 while true; do
   read -p "🌐 Ingrese su nuevo subdominio personalizado (cloudflare): " DHOST_VALOR
@@ -106,7 +106,7 @@ while true; do
     continue
   fi
   if [[ ! "$DHOST_VALOR" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-    echo -e "${RED}❌ El subdominio ingresado no es válido. Ej: ejemplo.com o sub.dominio.net${NC}"
+    echo -e "${RED}❌ Subdominio inválido. Ej: ejemplo.com o sub.dominio.net${NC}"
     continue
   fi
   break
@@ -133,14 +133,21 @@ gcloud run services update "$SERVICIO_SELECCIONADO" \
 if [ $? -eq 0 ]; then
   echo -e "\n✅ ${GREEN}Todos los cambios se aplicaron correctamente.${NC}"
 
-  # Mostrar URL del servicio
+  # Obtener URL pública
   SERVICE_URL=$(gcloud run services describe "$SERVICIO_SELECCIONADO" \
     --region="$REGION_SELECCIONADA" --platform=managed \
     --format="value(status.url)")
 
-  if [[ -n "$SERVICE_URL" ]]; then
-    echo -e "🌐 URL del servicio: ${CYAN}${SERVICE_URL}${NC}"
-  fi
+  # Obtener ID y número de proyecto
+  PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+  PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+
+  # Construir dominio regional
+  REGIONAL_DOMAIN="https://${SERVICIO_SELECCIONADO}-${PROJECT_NUMBER}.${REGION_SELECCIONADA}.run.app"
+
+  # Mostrar resultado final
+  echo -e "🌐 URL del servicio   : ${CYAN}${SERVICE_URL}${NC}"
+  echo -e "🌐 Dominio regional   : ${CYAN}${REGIONAL_DOMAIN}${NC}"
 else
   echo -e "\n❌ ${RED}Hubo un error al aplicar los cambios.${NC}"
 fi
