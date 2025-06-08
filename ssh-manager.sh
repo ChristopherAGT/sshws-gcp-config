@@ -91,7 +91,7 @@ function mostrar_menu() {
     while true; do
         clear
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-        echo -e "${CYAN}    🚀 PANEL DE CONTROL SSHWS${RESET}"
+        echo -e "${CYAN}    🚀 PANEL DE CONTROL SSH-WS${RESET}"
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
         echo -e "${YELLOW}1️⃣  Construir Servicio${RESET}"
         echo -e "${YELLOW}2️⃣  Editar Servicio${RESET}"
