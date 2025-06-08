@@ -85,7 +85,7 @@ done
 # Bucle para selección válida
 echo
 while true; do
-  read -p "👉 Selecciona el número del servicio que deseas editar: " seleccion
+  read -p "👉 Seleccione el servicio que desea editar: " seleccion
   if [[ "$seleccion" =~ ^[0-9]+$ ]] && [ "$seleccion" -ge 1 ] && [ "$seleccion" -le "${#SERVICIOS[@]}" ]; then
     seleccion=$((seleccion - 1))
     break
