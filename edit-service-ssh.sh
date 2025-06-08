@@ -3,8 +3,9 @@
 # Colores
 CYAN="\e[36m" ; GREEN="\e[32m" ; YELLOW="\e[33m" ; RED="\e[31m" ; NC="\e[0m"
 
-# Eliminar este script automaticamente al salir.
-trap 'rm -f -- "$0"' EXIT
+# Eliminar este script y archivo temporal automáticamente al salir.
+tmpfile=$(mktemp)
+trap 'rm -f -- "$0" "$tmpfile"' EXIT
 
 # Lista de regiones de Cloud Run
 REGIONS=(
@@ -40,10 +41,6 @@ echo    "━━━━━━━━━━━━━━━━━━━━━━━�
 echo    "🔎 BUSCANDO SERVICIOS CLOUD RUN EN TODAS LAS REGIONES"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${NC}"
-
-# Archivo temporal y cleanup
-tmpfile=$(mktemp)
-trap "rm -f $tmpfile" EXIT
 
 # Buscar servicios en segundo plano
 (
