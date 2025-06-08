@@ -1,105 +1,129 @@
 #!/bin/bash
 
-# ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-# ┃ 🌐 GCP: GESTOR DE SERVICIOS CLOUD RUN         ┃
-# ┃ 🔎 Buscar, mostrar y eliminar interactivo     ┃
-# ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+# ╭──────────────────────────────────────────────╮
+# │        SCRIPT DE GESTIÓN DE CLOUD RUN        │
+# ╰──────────────────────────────────────────────╯
 
-# Colores
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Colores y estilo
+RED="\e[31m"
+GREEN="\e[32m"
+CYAN="\e[36m"
+YELLOW="\e[33m"
+RESET="\e[0m"
+BOLD="\e[1m"
 
-# Lista completa de regiones
-REGIONS=(
-  "africa-south1" "northamerica-northeast1" "northamerica-northeast2"
-  "northamerica-south1" "southamerica-east1" "southamerica-west1"
-  "us-central1" "us-east1" "us-east4" "us-east5" "us-south1"
-  "us-west1" "us-west2" "us-west3" "us-west4" "asia-east1" "asia-east2"
-  "asia-northeast1" "asia-northeast2" "asia-northeast3" "asia-south1"
-  "asia-south2" "asia-southeast1" "asia-southeast2" "australia-southeast1"
-  "australia-southeast2" "europe-central2" "europe-north1" "europe-north2"
-  "europe-southwest1" "europe-west1" "europe-west2" "europe-west3"
-  "europe-west4" "europe-west6" "europe-west8" "europe-west9"
-  "europe-west10" "europe-west12" "me-central1" "me-central2" "me-west1"
-)
+# Regiones a revisar (puedes ajustar o expandir)
+REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
 
-# Mapa de servicios
-declare -A SERVICE_MAP
-INDEX=0
+# Obtener el proyecto actual
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
+# Validar proyecto
+if [[ -z "$PROJECT_ID" ]]; then
+    echo -e "${RED}❌ No se pudo obtener el ID del proyecto de GCP.${RESET}"
+    exit 1
+fi
 
 echo -e "${CYAN}"
-echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo    "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES"
-echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${RESET}"
 
-for region in "${REGIONS[@]}"; do
-  services=$(gcloud run services list --platform=managed --region="$region" --format="value(metadata.name)")
-  while IFS= read -r name; do
-    [[ -z "$name" ]] && continue
-    image=$(gcloud run services describe "$name" --region="$region" --format="value(spec.template.spec.containers[0].image)")
-    [[ -z "$image" ]] && continue
+# Declarar arreglo para almacenar resultados
+declare -a SERVICES_INFO
+INDEX=0
 
-    # Extraer nombre del repositorio y región de imagen
-    REPO_REGION=$(echo "$image" | cut -d'.' -f1)
-    REPOSITORY_NAME=$(echo "$image" | cut -d'/' -f3)
+# Buscar servicios en cada región
+for REGION in "${REGIONS[@]}"; do
+    SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format="json" 2>/dev/null)
+    
+    if [[ "$SERVICES" != "[]" ]]; then
+        SERVICE_NAMES=$(echo "$SERVICES" | jq -r '.[].metadata.name')
 
-    SERVICE_MAP[$INDEX]="$name|$region|$image|$REPOSITORY_NAME|$REPO_REGION"
-    echo -e "${YELLOW}${INDEX})${NC} ${BOLD}${name}${NC} (${region}) 🐳 ${image} 📦 ${REPOSITORY_NAME}:${REPO_REGION}"
-    ((INDEX++))
-  done <<< "$services"
+        for SERVICE in $SERVICE_NAMES; do
+            IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)")
+
+            # Extraer repositorio y región del repositorio desde la imagen
+            if [[ "$IMAGE" =~ ^([a-z0-9-]+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:/]+)([@:][^ ]+)?$ ]]; then
+                REPO_REGION="${BASH_REMATCH[1]}"
+                PROJECT="${BASH_REMATCH[2]}"
+                REPO_NAME="${BASH_REMATCH[3]}"
+                IMAGE_NAME="${BASH_REMATCH[4]}"
+                IMAGE_SUFFIX="${BASH_REMATCH[5]}"
+                [[ "$IMAGE_SUFFIX" == @* ]] && TAG_OR_DIGEST="$IMAGE_NAME${IMAGE_SUFFIX}" || TAG_OR_DIGEST="$IMAGE_NAME:${IMAGE_SUFFIX#:}"
+            else
+                REPO_REGION="?"
+                REPO_NAME="?"
+                TAG_OR_DIGEST=$(basename "$IMAGE")
+            fi
+
+            SERVICES_INFO+=("$SERVICE|$REGION|$TAG_OR_DIGEST|$REPO_NAME|$REPO_REGION")
+            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${TAG_OR_DIGEST}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
+            ((INDEX++))
+        done
+    fi
 done
 
-if [ "$INDEX" -eq 0 ]; then
-  echo -e "${RED}❌ No se encontraron servicios en ninguna región.${NC}"
-  exit 1
+# Validar si hay servicios
+if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
+    echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
+    exit 0
 fi
 
-echo -e "\n${CYAN}📌 Ingresa el número del servicio que deseas gestionar:${NC}"
-read -rp "➡️  Opción: " selected
+# Elegir servicio
+echo -ne "\n${BOLD}Seleccione el número del servicio a gestionar: ${RESET}"
+read -r SELECCION
 
-if [[ ! ${SERVICE_MAP[$selected]} ]]; then
-  echo -e "${RED}❌ Opción inválida.${NC}"
-  exit 1
+if ! [[ "$SELECCION" =~ ^[0-9]+$ ]] || ((SELECCION < 0)) || ((SELECCION >= ${#SERVICES_INFO[@]})); then
+    echo -e "${RED}❌ Selección inválida.${RESET}"
+    exit 1
 fi
 
-IFS='|' read -r SERVICE_NAME SERVICE_REGION IMAGE_NAME REPOSITORY_NAME REPO_REGION <<< "${SERVICE_MAP[$selected]}"
+IFS='|' read -r SELECTED_SERVICE SELECTED_REGION IMAGE_TAG SELECTED_REPO REPO_REGION <<< "${SERVICES_INFO[$SELECCION]}"
 
-echo -e "\n${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🛠️  OPCIONES DE ELIMINACIÓN PARA:"
-echo -e "🔹 Servicio: ${SERVICE_NAME} (${SERVICE_REGION})"
-echo -e "🔹 Imagen: ${IMAGE_NAME}"
-echo -e "🔹 Repositorio: ${REPOSITORY_NAME} (${REPO_REGION})"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
-read -rp "❓ Eliminar servicio de Cloud Run? (s/n): " DEL_SVC
-read -rp "❓ Eliminar imagen del Artifact Registry? (s/n): " DEL_IMG
-read -rp "❓ Eliminar repositorio del Artifact Registry? (s/n): " DEL_REPO
-
-# Eliminar servicio
-if [[ "$DEL_SVC" =~ ^[sS]$ ]]; then
-  echo -e "${CYAN}🧨 Eliminando servicio ${SERVICE_NAME}${NC}"
-  gcloud run services delete "$SERVICE_NAME" --region="$SERVICE_REGION" --quiet
+# Procesar nombre de imagen
+if [[ "$IMAGE_TAG" == *@sha256:* ]]; then
+    IMAGE_NAME=$(echo "$IMAGE_TAG" | cut -d'@' -f1)
+    DIGEST=$(echo "$IMAGE_TAG" | cut -d'@' -f2)
+    TAG=""
+else
+    IMAGE_NAME="${IMAGE_TAG%%:*}"
+    TAG="${IMAGE_TAG##*:}"
+    DIGEST=""
 fi
 
-# Eliminar imagen
-if [[ "$DEL_IMG" =~ ^[sS]$ ]]; then
-  echo -e "${CYAN}🧨 Eliminando imagen ${IMAGE_NAME}${NC}"
-  gcloud artifacts docker images delete "$IMAGE_NAME" --quiet
+echo -e "\n🛠️  ${BOLD}Opciones de eliminación para:${RESET}"
+echo -e "   🔹 Servicio: ${BOLD}${SELECTED_SERVICE}${RESET} (${SELECTED_REGION})"
+echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]} "
+echo -e "   🔹 Repositorio: ${CYAN}${SELECTED_REPO}${RESET} (${REPO_REGION})"
+
+# Preguntas de eliminación
+read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
+read -rp '❓ ¿Eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
+read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
+
+# Ejecutar eliminaciones
+if [[ "$DEL_SERVICE" == "s" || "$DEL_SERVICE" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando servicio...${RESET}"
+    gcloud run services delete "$SELECTED_SERVICE" --platform managed --region "$SELECTED_REGION" --quiet
 fi
 
-# Eliminar repositorio
-if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
-  if [[ -n "$REPOSITORY_NAME" && -n "$REPO_REGION" ]]; then
-    echo -e "${CYAN}🧨 Eliminando repositorio ${REPOSITORY_NAME} (${REPO_REGION})${NC}"
-    gcloud artifacts repositories delete "$REPOSITORY_NAME" --location="$REPO_REGION" --quiet
-  else
-    echo -e "${YELLOW}⚠️ No hay información válida de repositorio para eliminar.${NC}"
-  fi
+if [[ "$DEL_IMAGE" == "s" || "$DEL_IMAGE" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando imagen...${RESET}"
+
+    if [[ -n "$TAG" ]]; then
+        gcloud artifacts docker images delete "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME:$TAG" --quiet
+    fi
+
+    if [[ -n "$DIGEST" ]]; then
+        gcloud artifacts docker images delete "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME@$DIGEST" --quiet
+    fi
 fi
 
-echo -e "\n${GREEN}✅ Operación finalizada.${NC}"
+if [[ "$DEL_REPO" == "s" || "$DEL_REPO" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando repositorio...${RESET}"
+    gcloud artifacts repositories delete "$SELECTED_REPO" --location="$REPO_REGION" --quiet
+fi
+
+echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
