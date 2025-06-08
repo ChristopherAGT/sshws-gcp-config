@@ -19,6 +19,12 @@ if [[ -z "$PROJECT_ID" ]]; then
     exit 1
 fi
 
+# Validar que jq esté instalado
+if ! command -v jq &>/dev/null; then
+    echo -e "${RED}❌ La herramienta 'jq' no está instalada. Instálala antes de continuar.${RESET}"
+    exit 1
+fi
+
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES..."
@@ -73,6 +79,7 @@ done
 # Agregar opción de salida
 if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
     echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
+    rm -rf "$TMP_DIR"
     exit 0
 fi
 
@@ -116,41 +123,29 @@ fi
 if [[ "$DEL_IMAGE" =~ ^[sS]$ ]]; then
     FULL_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
 
-    # Obtener el digest
     if [[ "$SEP" == ":" ]]; then
+        # Si se especificó un tag, obtener digest
         DIGEST=$(gcloud artifacts docker images describe "$FULL_PATH:$TAG_OR_DIGEST" --format="value(image_summary.digest)" 2>/dev/null)
     else
+        # Si ya es digest
         DIGEST="$TAG_OR_DIGEST"
     fi
 
-    # Obtener tags asociados al digest
-    TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
-        --filter="image_summary.digest:$DIGEST" \
-        --format="get(tags)" 2>/dev/null)
+    echo -e "${CYAN}🔎 Buscando tags asociados al digest ${BOLD}${DIGEST}${RESET}${CYAN}...${RESET}"
 
-    # Eliminar los tags si existen
-    if [[ -n "$TAGS" ]]; then
-        echo -e "${CYAN}🧹 Eliminando tags asociados al digest:${RESET}"
-        while IFS= read -r TAG; do
-            [[ -n "$TAG" ]] && gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet && \
-            echo -e "   🗑️  Tag eliminado: ${TAG}"
-        done <<< "$TAGS"
+    TAGS=$(gcloud artifacts docker images list-tags "$FULL_PATH" --format="json" 2>/dev/null | jq -r --arg D "$DIGEST" '.[] | select(.image_summary.digest == $D) | .tags[]?')
+
+    if [[ -z "$TAGS" ]]; then
+        echo -e "${YELLOW}⚠️  No se encontraron tags asociados al digest.${RESET}"
     else
-        echo -e "${YELLOW}⚠️ No se encontraron tags asociados al digest.${RESET}"
+        for TAG in $TAGS; do
+            echo -e "${CYAN}🧹 Eliminando tag: ${BOLD}${TAG}${RESET}"
+            gcloud artifacts docker images delete "$FULL_PATH:$TAG" --quiet
+        done
     fi
 
-    # Verificar que ya no hay tags antes de eliminar digest
-    REMAINING=$(gcloud artifacts docker images list-tags "$FULL_PATH" \
-        --filter="image_summary.digest:$DIGEST" \
-        --format="get(tags)" 2>/dev/null)
-
-    if [[ -z "$REMAINING" ]]; then
-        echo -e "${CYAN}🧹 Eliminando digest: ${DIGEST}${RESET}"
-        gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet && \
-        echo -e "${GREEN}✅ Digest eliminado correctamente.${RESET}"
-    else
-        echo -e "${RED}❌ Digest aún tiene tags activos. No se eliminó.${RESET}"
-    fi
+    echo -e "${CYAN}🧹 Eliminando digest: ${BOLD}${DIGEST}${RESET}"
+    gcloud artifacts docker images delete "$FULL_PATH@$DIGEST" --quiet
 fi
 
 if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
