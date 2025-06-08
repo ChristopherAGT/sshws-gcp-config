@@ -1,113 +1,109 @@
 #!/bin/bash
 
-# Colores
+# Colores y estilo
 RED="\e[31m"
 GREEN="\e[32m"
 CYAN="\e[36m"
 YELLOW="\e[33m"
 RESET="\e[0m"
+BOLD="\e[1m"
 
-SEPARATOR="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# Regiones a revisar (puedes ajustar o expandir)
+REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
 
-echo -e "${CYAN}"
-echo "$SEPARATOR"
-echo "🔍 DETECTANDO SERVICIOS DESPLEGADOS CON IMAGEN DOCKER"
-echo "$SEPARATOR"
-echo -e "${RESET}"
+# Obtener el proyecto actual
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 
-# Pedimos datos base
-read -p "🧱 Nombre del proyecto (GCP): " PROJECT_ID
-read -p "🌍 Región (ej. us-central1): " REGION
-read -p "📦 Nombre del repositorio (Artifact Registry): " REPO_NAME
-read -p "🐳 Nombre de la imagen Docker (sin tag): " IMAGE_NAME
-
-IMAGE_PATH="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}"
+# Validar proyecto
+if [[ -z "$PROJECT_ID" ]]; then
+    echo -e "${RED}❌ No se pudo obtener el ID del proyecto de GCP.${RESET}"
+    exit 1
+fi
 
 echo -e "${CYAN}"
-echo "$SEPARATOR"
-echo "🔎 BUSCANDO SERVICIOS QUE USEN LA IMAGEN: ${IMAGE_PATH}:latest"
-echo "$SEPARATOR"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 BUSCANDO SERVICIOS DE CLOUD RUN EN TODAS LAS REGIONES..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
-# Obtenemos lista de servicios en la región
-SERVICES=$(gcloud run services list \
-  --project="$PROJECT_ID" \
-  --region="$REGION" \
-  --format="value(metadata.name)")
+# Declarar arreglo para almacenar resultados
+declare -a SERVICES_INFO
+INDEX=0
 
-MATCHING_SERVICES=()
-for SERVICE in $SERVICES; do
-  CURRENT_IMAGE=$(gcloud run services describe "$SERVICE" \
-    --project="$PROJECT_ID" \
-    --region="$REGION" \
-    --format="value(spec.template.spec.containers[0].image)")
+# Buscar servicios en cada región
+for REGION in "${REGIONS[@]}"; do
+    SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format="json" 2>/dev/null)
+    
+    if [[ "$SERVICES" != "[]" ]]; then
+        SERVICE_NAMES=$(echo "$SERVICES" | jq -r '.[].metadata.name')
 
-  if [[ "$CURRENT_IMAGE" == "${IMAGE_PATH}:latest" ]]; then
-    MATCHING_SERVICES+=("$SERVICE")
-  fi
+        for SERVICE in $SERVICE_NAMES; do
+            IMAGE=$(gcloud run services describe "$SERVICE" --platform managed --region "$REGION" --format="value(spec.template.spec.containers[0].image)")
+
+            # Extraer repositorio y región del repositorio desde la imagen
+            if [[ "$IMAGE" =~ ^(.+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^:]+):(.+)$ ]]; then
+                REPO_REGION="${BASH_REMATCH[1]}"
+                PROJECT="${BASH_REMATCH[2]}"
+                REPO_NAME="${BASH_REMATCH[3]}"
+                IMAGE_NAME="${BASH_REMATCH[4]}"
+                IMAGE_TAG="${BASH_REMATCH[5]}"
+            else
+                REPO_REGION="?"
+                REPO_NAME="?"
+                IMAGE_NAME=$(basename "$IMAGE" | cut -d':' -f1)
+                IMAGE_TAG=$(basename "$IMAGE" | cut -d':' -f2)
+            fi
+
+            SERVICES_INFO+=("$SERVICE|$REGION|$IMAGE_NAME:$IMAGE_TAG|$REPO_NAME|$REPO_REGION")
+            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}${SERVICE}-${REGION}${RESET}   ${GREEN}${IMAGE_NAME}:${IMAGE_TAG}${RESET}   ${CYAN}${REPO_NAME}:${REPO_REGION}${RESET}"
+            ((INDEX++))
+        done
+    fi
 done
 
-if [ ${#MATCHING_SERVICES[@]} -eq 0 ]; then
-  echo -e "${YELLOW}⚠ No se encontraron servicios usando esta imagen.${RESET}"
-else
-  echo -e "${GREEN}✔ Se encontraron los siguientes servicios:${RESET}"
-  for i in "${!MATCHING_SERVICES[@]}"; do
-    echo "  $((i+1)). ${MATCHING_SERVICES[$i]}"
-  done
-
-  echo -e "${CYAN}"
-  echo "$SEPARATOR"
-  echo "🗑️ SELECCIONA LOS SERVICIOS A ELIMINAR"
-  echo "$SEPARATOR"
-  echo -e "${RESET}"
-
-  read -p "✏️ Ingrese los números separados por espacios (ej: 1 3): " SELECTED
-
-  for num in $SELECTED; do
-    INDEX=$((num-1))
-    SERVICE_NAME="${MATCHING_SERVICES[$INDEX]}"
-    echo -e "${YELLOW}🧨 Eliminando servicio: ${SERVICE_NAME}${RESET}"
-    gcloud run services delete "$SERVICE_NAME" \
-      --project="$PROJECT_ID" \
-      --region="$REGION" \
-      --quiet
-  done
-
-  echo -e "${GREEN}✔ Servicios seleccionados eliminados.${RESET}"
+# Validar si hay servicios
+if [[ ${#SERVICES_INFO[@]} -eq 0 ]]; then
+    echo -e "${RED}❌ No se encontraron servicios de Cloud Run.${RESET}"
+    exit 0
 fi
 
-echo -e "${CYAN}"
-echo "$SEPARATOR"
-echo "🧹 ELIMINANDO IMAGEN EN ARTIFACT REGISTRY"
-echo "$SEPARATOR"
-echo -e "${RESET}"
+# Elegir servicio
+echo -ne "\n${BOLD}Seleccione el número del servicio a gestionar: ${RESET}"
+read -r SELECCION
 
-gcloud artifacts docker images delete "${IMAGE_PATH}:latest" \
-  --project="$PROJECT_ID" \
-  --quiet
-echo -e "${GREEN}✔ Imagen Docker eliminada.${RESET}"
-
-echo -e "${CYAN}"
-echo "$SEPARATOR"
-echo "📦 OPCIONAL: ELIMINAR REPOSITORIO DE ARTIFACT REGISTRY"
-echo "$SEPARATOR"
-echo -e "${RESET}"
-
-read -p "❓ ¿Quieres eliminar el repositorio '${REPO_NAME}' también? (s/N): " DELETE_REPO
-DELETE_REPO=${DELETE_REPO,,}
-
-if [[ "$DELETE_REPO" == "s" || "$DELETE_REPO" == "y" ]]; then
-  gcloud artifacts repositories delete "$REPO_NAME" \
-    --location="$REGION" \
-    --project="$PROJECT_ID" \
-    --quiet
-  echo -e "${GREEN}✔ Repositorio eliminado.${RESET}"
-else
-  echo -e "${YELLOW}⏭ Repositorio conservado.${RESET}"
+if ! [[ "$SELECCION" =~ ^[0-9]+$ ]] || ((SELECCION < 0)) || ((SELECCION >= ${#SERVICES_INFO[@]})); then
+    echo -e "${RED}❌ Selección inválida.${RESET}"
+    exit 1
 fi
 
-echo -e "${CYAN}"
-echo "$SEPARATOR"
-echo "✅ REVERTIR COMPLETADO"
-echo "$SEPARATOR"
-echo -e "${RESET}"
+IFS='|' read -r SELECTED_SERVICE SELECTED_REGION IMAGE_TAG SELECTED_REPO REPO_REGION <<< "${SERVICES_INFO[$SELECCION]}"
+IMAGE_NAME="${IMAGE_TAG%%:*}"
+TAG="${IMAGE_TAG##*:}"
+
+echo -e "\n🛠️  ${BOLD}Opciones de eliminación para:${RESET}"
+echo -e "   🔹 Servicio: ${BOLD}${SELECTED_SERVICE}${RESET} (${SELECTED_REGION})"
+echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}:${TAG}${RESET}"
+echo -e "   🔹 Repositorio: ${CYAN}${SELECTED_REPO}${RESET} (${REPO_REGION})"
+
+# Preguntas de eliminación
+read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
+read -rp '❓ ¿Eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
+read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
+
+# Ejecutar eliminaciones
+if [[ "$DEL_SERVICE" == "s" || "$DEL_SERVICE" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando servicio...${RESET}"
+    gcloud run services delete "$SELECTED_SERVICE" --platform managed --region "$SELECTED_REGION" --quiet
+fi
+
+if [[ "$DEL_IMAGE" == "s" || "$DEL_IMAGE" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando imagen...${RESET}"
+    gcloud artifacts docker images delete "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME:$TAG" --quiet
+fi
+
+if [[ "$DEL_REPO" == "s" || "$DEL_REPO" == "S" ]]; then
+    echo -e "${CYAN}🧹 Eliminando repositorio...${RESET}"
+    gcloud artifacts repositories delete "$SELECTED_REPO" --location="$REPO_REGION" --quiet
+fi
+
+echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
