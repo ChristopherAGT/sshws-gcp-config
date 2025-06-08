@@ -332,7 +332,8 @@ while true; do
     if [[ "$CONFIRMAR" == "s" ]]; then
         break
     else
-        echo -e "${amarillo}🔁 Vamos a volver a solicitar el subdominio...${neutro}"
+        echo -e "${blue}🔁 Vamos a volver a solicitar el subdominio...${neutro}"
+        echo #AÑADI-ESPACIL
     fi
 done
 
