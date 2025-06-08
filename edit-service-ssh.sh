@@ -3,59 +3,27 @@
 # Colores
 CYAN="\e[36m" ; GREEN="\e[32m" ; YELLOW="\e[33m" ; RED="\e[31m" ; NC="\e[0m"
 
-# Lista de regiones de Cloud Run (ordenadas según tu solicitud)
+# Lista de regiones de Cloud Run
 REGIONS=(
-  "africa-south1"
-  "northamerica-northeast1"
-  "northamerica-northeast2"
-  "northamerica-south1"
-  "southamerica-east1"
-  "southamerica-west1"
-  "us-central1"
-  "us-east1"
-  "us-east4"
-  "us-east5"
-  "us-south1"
-  "us-west1"
-  "us-west2"
-  "us-west3"
-  "us-west4"
-  "asia-east1"
-  "asia-east2"
-  "asia-northeast1"
-  "asia-northeast2"
-  "asia-northeast3"
-  "asia-south1"
-  "asia-south2"
-  "asia-southeast1"
-  "asia-southeast2"
-  "australia-southeast1"
-  "australia-southeast2"
-  "europe-central2"
-  "europe-north1"
-  "europe-north2"
-  "europe-southwest1"
-  "europe-west1"
-  "europe-west2"
-  "europe-west3"
-  "europe-west4"
-  "europe-west6"
-  "europe-west8"
-  "europe-west9"
-  "europe-west10"
-  "europe-west12"
-  "me-central1"
-  "me-central2"
-  "me-west1"
+  "asia-east1" "asia-east2" "asia-northeast1" "asia-northeast2" "asia-northeast3"
+  "asia-south1" "asia-south2" "asia-southeast1" "asia-southeast2"
+  "australia-southeast1" "australia-southeast2"
+  "europe-central2" "europe-north1" "europe-west1" "europe-west2" "europe-west3"
+  "europe-west4" "europe-west6"
+  "me-west1" "me-central1"
+  "northamerica-northeast1" "northamerica-northeast2"
+  "southamerica-east1" "southamerica-west1"
+  "us-central1" "us-east1" "us-east4" "us-east5"
+  "us-south1" "us-west1" "us-west2" "us-west3" "us-west4"
 )
 
 # Función para mostrar el spinner
 spinner() {
   local pid=$1
-  local delay=0.75
+  local delay=0.1
   local spin='/-\|'
   local i=0
-  while kill -0 $pid 2>/dev/null; do
+  while kill -0 "$pid" 2>/dev/null; do
     i=$(( (i+1) % 4 ))
     printf "\rBuscando servicios en Cloud Run... ${spin:i:1}"
     sleep $delay
@@ -70,26 +38,36 @@ echo    "🔎 BUSCANDO SERVICIOS CLOUD RUN EN TODAS LAS REGIONES"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${NC}"
 
-# Buscar servicios
-SERVICIOS=()
-INFO_SERVICIOS=()
+# Archivo temporal para capturar salida del subshell
+tmpfile=$(mktemp)
 
-# Iniciar el proceso de búsqueda en segundo plano
+# Buscar servicios en segundo plano y guardar resultados en tmpfile
 (
   for region in "${REGIONS[@]}"; do
     output=$(gcloud run services list --platform=managed --region="$region" --format="value(metadata.name)" 2>/dev/null)
     while read -r service; do
       if [[ -n "$service" ]]; then
-        SERVICIOS+=("$service")
-        INFO_SERVICIOS+=("$service|$region")
+        echo "$service|$region"
       fi
     done <<< "$output"
   done
-) &
+) > "$tmpfile" &
 pid=$!
 
-# Mostrar el spinner mientras se ejecuta el proceso
-spinner $pid
+# Mostrar spinner mientras corre el proceso
+spinner "$pid"
+
+# Leer resultados y llenar arrays
+SERVICIOS=()
+INFO_SERVICIOS=()
+
+while IFS= read -r line; do
+  service=$(cut -d '|' -f1 <<< "$line")
+  SERVICIOS+=("$service")
+  INFO_SERVICIOS+=("$line")
+done < "$tmpfile"
+
+rm "$tmpfile"
 
 # Validación
 if [ ${#SERVICIOS[@]} -eq 0 ]; then
@@ -134,8 +112,6 @@ echo -e "  🌐 Variable DHOST: $DHOST_VALOR"
 echo -e "  📦 Variable DPORT: 22"
 
 # Aplicar cambios
-ENV_VARS="DHOST=${DHOST_VALOR},DPORT=22"
-
 echo -e "${CYAN}"
 echo    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo    "🚀 APLICANDO CAMBIOS AL SERVICIO"
@@ -147,7 +123,7 @@ gcloud run services update "$SERVICIO_SELECCIONADO" \
   --platform=managed \
   --timeout=3600s \
   --concurrency=100 \
-  --update-env-vars="$ENV_VARS"
+  --update-env-vars="DHOST=${DHOST_VALOR},DPORT=22"
 
 # Verificación
 if [ $? -eq 0 ]; then
