@@ -3,6 +3,9 @@
 # Colores
 CYAN="\e[36m" ; GREEN="\e[32m" ; YELLOW="\e[33m" ; RED="\e[31m" ; NC="\e[0m"
 
+# Eliminar este script automaticamente al salir.
+trap 'rm -f -- "$0"' EXIT
+
 # Lista de regiones de Cloud Run
 REGIONS=(
   "asia-east1" "asia-east2" "asia-northeast1" "asia-northeast2" "asia-northeast3"
