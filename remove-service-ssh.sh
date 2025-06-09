@@ -102,6 +102,7 @@ for repo in "${REPO_NAMES[@]}"; do
         done
     else
         echo -e "  └─ 📸 ${BOLD}Imagen:${RESET} (ninguna)"
+        echo -e "     └─ 🚀 ${BOLD}Servicio:${RESET} (ninguno)"
         ITEMS+=("|||$REPO_NAME|$REPO_REGION")
         ((INDEX++))
     fi
@@ -143,6 +144,7 @@ fi
 # Mostrar datos
 echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
 [[ -n "$SERVICE" ]] && echo -e "   🔹 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
+[[ -z "$SERVICE" ]] && echo -e "   🔹 Servicio: (ninguno)"
 [[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
 echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
