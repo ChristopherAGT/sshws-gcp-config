@@ -64,7 +64,7 @@ for REGION in "${REGIONS[@]}"; do
     done
 done
 
-# Mostrar repositorios con imágenes y servicios relacionados
+# Mostrar repositorios con imágenes y servicios relacionados agrupados
 for repo in "${REPO_NAMES[@]}"; do
     REPO_REGION=$(echo "$repo" | cut -d/ -f4)
     REPO_NAME=$(echo "$repo" | cut -d/ -f6)
@@ -76,48 +76,44 @@ for repo in "${REPO_NAMES[@]}"; do
     IMAGES_JSON=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format=json 2>/dev/null)
     IMAGE_NAMES=($(echo "$IMAGES_JSON" | jq -r '.[].image'))
 
-    if [[ ${#IMAGE_NAMES[@]} -eq 0 && -z "$INFO" ]]; then
-        echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Repositorio sin servicio ni imagen:${RESET} ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-        ITEMS+=("|||$REPO_NAME|$REPO_REGION")
-        ((INDEX++))
-    else
-        if [[ -n "$INFO" ]]; then
-            while IFS='|' read -r _ SERVICE REGION IMG_TAG; do
-                [[ -z "$SERVICE" ]] && continue
-                echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Servicio:${RESET} $SERVICE (${REGION})"
-                echo -e "    📦 Imagen: ${GREEN}${IMG_TAG}${RESET}"
-                echo -e "    🗂️  Repo: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-                ITEMS+=("$SERVICE|$REGION|$IMG_TAG|$REPO_NAME|$REPO_REGION")
-                ((INDEX++))
-            done <<< "$INFO"
+    # Mostrar encabezado del repositorio
+    echo -e "${CYAN}${BOLD}$INDEX) Repositorio:${RESET} ${BOLD}$REPO_NAME${RESET} (${REPO_REGION})"
+    ITEMS+=("|||$REPO_NAME|$REPO_REGION") # para opción de gestionar repositorio solo
+    ((INDEX++))
 
-            for IMG in "${IMAGE_NAMES[@]}"; do
-                LOCALIZADA=0
-                while IFS='|' read -r _ _ _ IMG_SRV _ _; do
-                    [[ "$IMG" == "$IMG_SRV" ]] && LOCALIZADA=1 && break
-                done <<< "$INFO"
-
-                if (( LOCALIZADA == 0 )); then
-                    echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Imagen sin servicio asociado:${RESET} ${GREEN}${IMG}${RESET}"
-                    echo -e "    🗂️  Repo: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-                    ITEMS+=("| |$IMG|$REPO_NAME|$REPO_REGION")
-                    ((INDEX++))
-                fi
-            done
-        else
-            for IMG in "${IMAGE_NAMES[@]}"; do
-                echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Imagen sin servicio asociado:${RESET} ${GREEN}${IMG}${RESET}"
-                echo -e "    🗂️  Repo: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-                ITEMS+=("| |$IMG|$REPO_NAME|$REPO_REGION")
-                ((INDEX++))
-            done
-        fi
+    # Mostrar servicios asociados al repo, con imagen
+    if [[ -n "$INFO" ]]; then
+        while IFS='|' read -r _ SERVICE REGION IMG_TAG; do
+            [[ -z "$SERVICE" ]] && continue
+            echo -e "    🔹 Servicio: ${YELLOW}${SERVICE}${RESET} (${REGION})"
+            echo -e "      📦 Imagen: ${GREEN}${IMG_TAG}${RESET}"
+            ITEMS+=("$SERVICE|$REGION|$IMG_TAG|$REPO_NAME|$REPO_REGION")
+            ((INDEX++))
+        done <<< "$INFO"
     fi
+
+    # Mostrar imágenes sin servicio asociado
+    for IMG in "${IMAGE_NAMES[@]}"; do
+        LOCALIZADA=0
+        if [[ -n "$INFO" ]]; then
+            while IFS='|' read -r _ _ _ IMG_SRV _ _; do
+                [[ "$IMG" == "$IMG_SRV" ]] && LOCALIZADA=1 && break
+            done <<< "$INFO"
+        fi
+
+        if (( LOCALIZADA == 0 )); then
+            echo -e "    🖼️ Imagen sin servicio: ${GREEN}${IMG}${RESET}"
+            ITEMS+=("| |$IMG|$REPO_NAME|$REPO_REGION")
+            ((INDEX++))
+        fi
+    done
+
+    echo # línea en blanco para separar repositorios
 done
 
 [[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
 
-echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
+echo -e "${BOLD}0) Cancelar y salir${RESET}"
 echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
 read -r SELECCION
 
