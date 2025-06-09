@@ -13,40 +13,56 @@ RESET="\e[0m"
 BOLD="\e[1m"
 
 # Lista completa de regiones para Cloud Run
-REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
+REGIONS=(
+  "us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1"
+)
 
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 [[ -z "$PROJECT_ID" ]] && echo -e "${RED}❌ No se pudo obtener el ID del proyecto.${RESET}" && exit 1
 
+clear
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔍 RECOLECTANDO SERVICIOS DE CLOUD RUN Y REPOSITORIOS DE ARTIFACT..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
-declare -a ITEMS
-INDEX=1
+declare -A SERVICE_MAP
+declare -A IMAGE_MAP
+declare -A REPO_IMAGES_MAP
 
 # Obtener todos los repositorios del proyecto
-REPOS_JSON=$(gcloud artifacts repositories list --format=json)
+REPOS_JSON=$(gcloud artifacts repositories list --format=json 2>/dev/null)
 REPO_NAMES=($(echo "$REPOS_JSON" | jq -r '.[].name'))
 
-# Obtener todos los servicios por región y mapear por repo (clave REPO_REGION|REPO_NAME)
-declare -A SERVICE_MAP
-for REGION in "${REGIONS[@]}"; do
-    SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format=json 2>/dev/null)
-    [[ "$SERVICES" == "[]" ]] && continue
+if [[ ${#REPO_NAMES[@]} -eq 0 ]]; then
+    echo -e "${RED}❌ No se encontraron repositorios en el proyecto.${RESET}"
+    exit 0
+fi
 
-    for row in $(echo "$SERVICES" | jq -r '.[] | @base64'); do
+# Para cada repositorio, obtener sus imágenes
+for repo_fullname in "${REPO_NAMES[@]}"; do
+    REPO_REGION=$(echo "$repo_fullname" | cut -d/ -f4)
+    REPO_NAME=$(echo "$repo_fullname" | cut -d/ -f6)
+    REPO_IMAGES_JSON=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format=json 2>/dev/null)
+    IMAGES=($(echo "$REPO_IMAGES_JSON" | jq -r '.[].image'))
+    REPO_IMAGES_MAP["$REPO_REGION|$REPO_NAME"]="${IMAGES[*]}"
+done
+
+# Buscar servicios Cloud Run en todas las regiones y mapearlos con repositorio + imagen
+for REGION in "${REGIONS[@]}"; do
+    SERVICES_JSON=$(gcloud run services list --platform managed --region "$REGION" --format=json 2>/dev/null)
+    [[ "$SERVICES_JSON" == "[]" ]] && continue
+
+    for row in $(echo "$SERVICES_JSON" | jq -r '.[] | @base64'); do
         _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
         SERVICE_NAME=$(_jq '.metadata.name')
-        IMAGE=$(
+        IMAGE_FULL=$(
             gcloud run services describe "$SERVICE_NAME" \
             --platform managed --region "$REGION" \
             --format="value(spec.template.spec.containers[0].image)" 2>/dev/null
         )
-
-        if [[ "$IMAGE" =~ ^([a-z0-9-]+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:/]+)([@:][^ ]+)?$ ]]; then
+        if [[ "$IMAGE_FULL" =~ ^([a-z0-9-]+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:/]+)([@:][^ ]+)?$ ]]; then
             REPO_REGION="${BASH_REMATCH[1]}"
             PROJECT="${BASH_REMATCH[2]}"
             REPO_NAME="${BASH_REMATCH[3]}"
@@ -56,64 +72,76 @@ for REGION in "${REGIONS[@]}"; do
         else
             REPO_REGION="$REGION"
             REPO_NAME="?"
-            TAG_OR_DIGEST=$(basename "$IMAGE")
+            TAG_OR_DIGEST=$(basename "$IMAGE_FULL")
         fi
-
+        # Guardamos mapeo servicio -> repo/imagen
         KEY="$REPO_REGION|$REPO_NAME"
-        SERVICE_MAP["$KEY"]+="|$SERVICE_NAME|$REGION|$TAG_OR_DIGEST"
+        SERVICE_MAP["$KEY"]+="$SERVICE_NAME|$REGION|$TAG_OR_DIGEST;"
+        IMAGE_MAP["$SERVICE_NAME"]="$TAG_OR_DIGEST"
     done
 done
 
-# Mostrar repositorios con imágenes y servicios relacionados agrupados
-for repo in "${REPO_NAMES[@]}"; do
-    REPO_REGION=$(echo "$repo" | cut -d/ -f4)
-    REPO_NAME=$(echo "$repo" | cut -d/ -f6)
+clear
+echo -e "${BOLD}Listado completo de servicios, imágenes y repositorios:${RESET}\n"
 
+INDEX=1
+declare -a ITEMS
+
+for repo_fullname in "${REPO_NAMES[@]}"; do
+    REPO_REGION=$(echo "$repo_fullname" | cut -d/ -f4)
+    REPO_NAME=$(echo "$repo_fullname" | cut -d/ -f6)
     KEY="$REPO_REGION|$REPO_NAME"
-    INFO="${SERVICE_MAP[$KEY]}"
 
-    # Obtener imágenes dentro del repositorio
-    IMAGES_JSON=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format=json 2>/dev/null)
-    IMAGE_NAMES=($(echo "$IMAGES_JSON" | jq -r '.[].image'))
+    # Obtener servicios asociados a este repo
+    SERVICES_INFO="${SERVICE_MAP[$KEY]}"
+    IFS=';' read -ra SERVICE_ENTRIES <<< "$SERVICES_INFO"
 
-    # Mostrar encabezado del repositorio
-    echo -e "${CYAN}${BOLD}$INDEX) Repositorio:${RESET} ${BOLD}$REPO_NAME${RESET} (${REPO_REGION})"
-    ITEMS+=("|||$REPO_NAME|$REPO_REGION") # para opción de gestionar repositorio solo
-    ((INDEX++))
+    # Obtener imágenes en este repo
+    IMAGES_STRING="${REPO_IMAGES_MAP[$KEY]}"
+    IFS=' ' read -ra IMAGES <<< "$IMAGES_STRING"
 
-    # Mostrar servicios asociados al repo, con imagen
-    if [[ -n "$INFO" ]]; then
-        while IFS='|' read -r _ SERVICE REGION IMG_TAG; do
-            [[ -z "$SERVICE" ]] && continue
-            echo -e "    🔹 Servicio: ${YELLOW}${SERVICE}${RESET} (${REGION})"
-            echo -e "      📦 Imagen: ${GREEN}${IMG_TAG}${RESET}"
-            ITEMS+=("$SERVICE|$REGION|$IMG_TAG|$REPO_NAME|$REPO_REGION")
+    if [[ -z "$SERVICES_INFO" ]]; then
+        # No hay servicios para este repo
+        echo -e "${YELLOW}$INDEX)${RESET} ☁️ Servicio Cloud Run: ${RED}ninguno${RESET} Asociado a 🖼️ ${RED}ninguno${RESET}"
+        echo -e "    📦 Imagen Docker: ${#IMAGES[@]} - "
+        if [[ ${#IMAGES[@]} -eq 0 ]]; then
+            echo -e "       ${RED}ninguno${RESET}"
+        else
+            for img in "${IMAGES[@]}"; do
+                echo -e "       ${GREEN}${img}${RESET}"
+            done
+        fi
+        echo -e "    📂 Repositorio: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
+        ITEMS+=("|||$REPO_NAME|$REPO_REGION")
+        ((INDEX++))
+    else
+        # Para cada servicio, mostrar su info + la imagen y repo
+        for srv_entry in "${SERVICE_ENTRIES[@]}"; do
+            [[ -z "$srv_entry" ]] && continue
+            IFS='|' read -r SERVICE REGION TAG_OR_DIGEST <<< "$srv_entry"
+            IMAGE_DISPLAY="${IMAGE_MAP[$SERVICE]}"
+            [[ -z "$IMAGE_DISPLAY" ]] && IMAGE_DISPLAY="ninguno"
+
+            echo -e "${YELLOW}$INDEX)${RESET} ☁️ Servicio Cloud Run: ${BOLD}$SERVICE${RESET} Asociado a 🖼️ ${GREEN}${IMAGE_DISPLAY}${RESET}"
+            echo -e "    📦 Imagen Docker:"
+
+            # Mostrar todas las imágenes del repositorio
+            if [[ ${#IMAGES[@]} -eq 0 ]]; then
+                echo -e "       ${RED}ninguno${RESET}"
+            else
+                for img in "${IMAGES[@]}"; do
+                    echo -e "       ${GREEN}${img}${RESET}"
+                done
+            fi
+
+            echo -e "    📂 Repositorio: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
+            ITEMS+=("$SERVICE|$REGION|$IMAGE_DISPLAY|$REPO_NAME|$REPO_REGION")
             ((INDEX++))
-        done <<< "$INFO"
+        done
     fi
-
-    # Mostrar imágenes sin servicio asociado
-    for IMG in "${IMAGE_NAMES[@]}"; do
-        LOCALIZADA=0
-        if [[ -n "$INFO" ]]; then
-            while IFS='|' read -r _ _ _ IMG_SRV _ _; do
-                [[ "$IMG" == "$IMG_SRV" ]] && LOCALIZADA=1 && break
-            done <<< "$INFO"
-        fi
-
-        if (( LOCALIZADA == 0 )); then
-            echo -e "    🖼️ Imagen sin servicio: ${GREEN}${IMG}${RESET}"
-            ITEMS+=("| |$IMG|$REPO_NAME|$REPO_REGION")
-            ((INDEX++))
-        fi
-    done
-
-    echo # línea en blanco para separar repositorios
 done
 
-[[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
-
-echo -e "${BOLD}0) Cancelar y salir${RESET}"
+echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
 echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
 read -r SELECCION
 
