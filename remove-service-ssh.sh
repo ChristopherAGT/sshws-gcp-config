@@ -41,7 +41,7 @@ declare -a ITEMS
 INDEX=1
 
 # Obtener todos los repositorios del proyecto
-REPOS_JSON=$(gcloud artifacts repositories list --format=json)
+REPOS_JSON=$(gcloud artifacts repositories list --format=json 2>/dev/null)
 REPO_NAMES=($(echo "$REPOS_JSON" | jq -r '.[].name'))
 
 # Archivo temporal para recolectar servicios
