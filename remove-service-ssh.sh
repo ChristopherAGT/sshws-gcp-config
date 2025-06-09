@@ -1,163 +1,110 @@
 #!/bin/bash
 
 # ╭────────────────────────────────────────────────────────────╮
-# │         GESTOR COMPLETO DE CLOUD RUN Y ARTIFACT REGISTRY   │
+# │       GESTOR TOTAL: Cloud Run + Artifact Registry         │
 # ╰────────────────────────────────────────────────────────────╯
 
-# Colores y estilo
-RED="\e[31m"
-GREEN="\e[32m"
-CYAN="\e[36m"
-YELLOW="\e[33m"
-RESET="\e[0m"
-BOLD="\e[1m"
+RED="\e[31m"; GREEN="\e[32m"; CYAN="\e[36m"
+YELLOW="\e[33m"; RESET="\e[0m"; BOLD="\e[1m"
 
 REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1")
-
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
-[[ -z "$PROJECT_ID" ]] && echo -e "${RED}❌ No se pudo obtener el ID del proyecto.${RESET}" && exit 1
+if [[ -z "$PROJECT_ID" ]]; then
+  echo -e "${RED}❌ No se pudo obtener el ID del proyecto.${RESET}"; exit 1
+fi
 
-echo -e "${CYAN}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔍 RECOLECTANDO SERVICIOS DE CLOUD RUN Y REPOSITORIOS DE ARTIFACT..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${RESET}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 RECOLECTANDO servicios Cloud Run y repositorios Artifact Registry"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
-declare -a ITEMS
-INDEX=1
+declare -A SRV_IMG
+declare -A SRV_REGION
 
-# Obtener todos los repositorios del proyecto
-REPOS_JSON=$(gcloud artifacts repositories list --format=json)
-REPO_NAMES=($(echo "$REPOS_JSON" | jq -r '.[].name'))
-
-# Obtener todos los servicios por región
-declare -A SERVICE_MAP
 for REGION in "${REGIONS[@]}"; do
-    SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format=json 2>/dev/null)
-    [[ "$SERVICES" == "[]" ]] && continue
+  mapfile -t SVC_LIST < <(
+    gcloud run services list --platform managed --region "$REGION" --format="value(metadata.name)" 2>/dev/null
+  )
+  for SVC in "${SVC_LIST[@]}"; do
+    IMG=$(gcloud run services describe "$SVC" --platform managed --region "$REGION" \
+      --format="value(spec.template.spec.containers[0].image)" 2>/dev/null)
+    [[ -z "$IMG" ]] && continue
+    SRV_IMG["$IMG"]="$SVC"; SRV_REGION["$IMG"]="$REGION"
+  done
+done
 
-    for row in $(echo "$SERVICES" | jq -r '.[] | @base64'); do
-        _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
-        SERVICE_NAME=$(_jq '.metadata.name')
-        IMAGE=$(
-            gcloud run services describe "$SERVICE_NAME" \
-            --platform managed --region "$REGION" \
-            --format="value(spec.template.spec.containers[0].image)" 2>/dev/null
-        )
+mapfile -t REPOS < <(gcloud artifacts repositories list --format="value(name)")
 
-        # Extraer detalles de imagen
-        if [[ "$IMAGE" =~ ^([a-z0-9-]+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:/]+)([@:][^ ]+)?$ ]]; then
-            REPO_REGION="${BASH_REMATCH[1]}"
-            PROJECT="${BASH_REMATCH[2]}"
-            REPO_NAME="${BASH_REMATCH[3]}"
-            IMAGE_NAME="${BASH_REMATCH[4]}"
-            IMAGE_SUFFIX="${BASH_REMATCH[5]}"
-            [[ "$IMAGE_SUFFIX" == @* ]] && TAG_OR_DIGEST="$IMAGE_NAME${IMAGE_SUFFIX}" || TAG_OR_DIGEST="$IMAGE_NAME:${IMAGE_SUFFIX#:}"
-        else
-            REPO_REGION="$REGION"
-            REPO_NAME="?"
-            TAG_OR_DIGEST=$(basename "$IMAGE")
-        fi
+declare -a MENU
+declare -a ENTRY_TYPE
 
-        KEY="$REPO_REGION|$REPO_NAME"
-        SERVICE_MAP["$KEY"]+="|$SERVICE_NAME|$REGION|$TAG_OR_DIGEST"
+idx=1
+for FULL_REPO in "${REPOS[@]}"; do
+  REPO_REGION=$(echo "$FULL_REPO" | cut -d/ -f4)
+  REPO_NAME=$(echo "$FULL_REPO" | cut -d/ -f6)
+  
+  IMG_LIST=$(gcloud artifacts docker images list "${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="value(name)")
+  if [[ -z "$IMG_LIST" ]]; then
+    MENU+=("$FULL_REPO|||$REPO_REGION")
+    ENTRY_TYPE+=("repo_only")
+    echo -e "${YELLOW}$idx)${RESET} ${BOLD}Repo limpio:${RESET} ${CYAN}$REPO_NAME${RESET} (${REPO_REGION})"
+  else
+    mapfile -t IMG_LIST <<<"$IMG_LIST"
+    for IMG in "${IMG_LIST[@]}"; do
+      TAG_DIGEST=$(gcloud artifacts docker images describe "${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMG" \
+        --format='value(image_summary.digest)')
+      FULL_IMG="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMG@$TAG_DIGEST"
+      
+      if [[ -n "${SRV_IMG[$FULL_IMG]}" ]]; then
+        SVC=${SRV_IMG[$FULL_IMG]}
+        SREG=${SRV_REGION[$FULL_IMG]}
+        MENU+=("$FULL_REPO|$FULL_IMG|$SVC|$SREG")
+        ENTRY_TYPE+=("both")
+        echo -e "${YELLOW}$idx)${RESET} ${BOLD}Servicio:${RESET} $SVC (${SREG})"
+        echo -e "    📦 Imagen:&nbsp;${GREEN}$IMG@$TAG_DIGEST${RESET}"
+        echo -e "    🗂️  Repo:&nbsp;${CYAN}$REPO_NAME${RESET} (${REPO_REGION})"
+      else
+        MENU+=("$FULL_REPO|$FULL_IMG||")
+        ENTRY_TYPE+=("img_only")
+        echo -e "${YELLOW}$idx)${RESET} ${BOLD}Imagen sin servicio:${RESET} ${GREEN}$IMG@$TAG_DIGEST${RESET}"
+        echo -e "    🗂️  Repo:&nbsp;${CYAN}$REPO_NAME${RESET} (${REPO_REGION})"
+      fi
+      idx=$((idx+1))
     done
+  fi
+  idx=$((idx))
 done
 
-# Mostrar repositorios con su información
-for repo in "${REPO_NAMES[@]}"; do
-    REPO_REGION=$(echo "$repo" | cut -d/ -f4)
-    REPO_NAME=$(echo "$repo" | cut -d/ -f6)
-
-    KEY="$REPO_REGION|$REPO_NAME"
-    INFO="${SERVICE_MAP[$KEY]}"
-
-    if [[ -n "$INFO" ]]; then
-        while IFS='|' read -r _ SERVICE REGION IMAGE; do
-            [[ -z "$SERVICE" ]] && continue
-            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Servicio:${RESET} $SERVICE (${REGION})"
-            echo -e "    📦 Imagen: ${GREEN}${IMAGE}${RESET}"
-            echo -e "    🗂️  Repo: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-            ITEMS+=("$SERVICE|$REGION|$IMAGE|$REPO_NAME|$REPO_REGION")
-            ((INDEX++))
-        done <<< "$INFO"
-    else
-        echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Repositorio sin servicio ni imagen:${RESET} ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
-        ITEMS+=("|||$REPO_NAME|$REPO_REGION")
-        ((INDEX++))
-    fi
-done
-
-# Si no hay nada
-[[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
-
-# Menú con opción 0 para cancelar
 echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
-echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
-read -r SELECCION
+echo -ne "${BOLD}Seleccione un ítem para gestionar: ${RESET}"
+read -r SELECTION
 
-if [[ "$SELECCION" == "0" ]]; then
-    echo -e "${YELLOW}🚪 Saliendo...${RESET}"
-    exit 0
+(( SELECTION < 1 || SELECTION > ${#MENU[@]} )) && {
+  echo -e "${YELLOW}Saliendo...${RESET}"; exit 0
+}
+
+IFS='|' read -r REPO_FULL IMG_FULL SVC_FULL SVC_REGION <<< "${MENU[$((SELECTION-1))]}"
+
+echo -e "\n🛠️ ${BOLD}Gestión del ítem seleccionado:${RESET}"
+[[ -n "$SVC_FULL" ]] && echo -e "   🔹 Servicio: ${BOLD}$SVC_FULL${RESET} (${SVC_REGION})"
+[[ -n "$IMG_FULL" ]] && echo -e "   📦 Imagen: ${GREEN}${IMG_FULL}${RESET}"
+REPO_NAME=$(echo "$REPO_FULL" | cut -d/ -f6)
+REPO_REGION=$(echo "$REPO_FULL" | cut -d/ -f4)
+echo -e "   🗂️  Repo: ${CYAN}$REPO_NAME${RESET} (${REPO_REGION})"
+
+[ -n "$SVC_FULL" ] && read -rp $'\n❓ Eliminar servicio Cloud Run? (s/n): ' DEL_SVC
+[ -n "$IMG_FULL" ] && read -rp '❓ Eliminar imagen? (s/n): ' DEL_IMG
+read -rp '❓ Eliminar repositorio? (s/n): ' DEL_REPO
+
+[[ "$DEL_SVC" =~ ^[sS]$ ]] && gcloud run services delete "$SVC_FULL" --platform managed --region "$SVC_REGION" --quiet
+if [[ "$DEL_IMG" =~ ^[sS]$ && -n "$IMG_FULL" ]]; then
+  IMG_PATH="${IMG_FULL%@*}"
+  DIGEST="${IMG_FULL#*@}"
+  TAGS=$(gcloud artifacts docker tags list "$IMG_PATH" --format="get(tag)" --filter="version=\"$DIGEST\"")
+  for T in $TAGS; do
+    gcloud artifacts docker tags delete "$IMG_PATH:$T" --quiet
+  done
+  gcloud artifacts docker images delete "$IMG_FULL" --quiet
 fi
+[[ "$DEL_REPO" =~ ^[sS]$ ]] && gcloud artifacts repositories delete "$REPO_NAME" --location="$REPO_REGION" --quiet
 
-IDX=$((SELECCION - 1))
-if (( IDX < 0 || IDX >= ${#ITEMS[@]} )); then
-    echo -e "${RED}❌ Selección inválida.${RESET}"
-    exit 1
-fi
-
-IFS='|' read -r SERVICE REGION IMAGE_TAG REPO REPO_REGION <<< "${ITEMS[$IDX]}"
-
-# Procesamiento de imagen
-if [[ "$IMAGE_TAG" == *@sha256:* ]]; then
-    IMAGE_NAME=$(echo "$IMAGE_TAG" | cut -d'@' -f1)
-    DIGEST=$(echo "$IMAGE_TAG" | cut -d'@' -f2)
-    TAG=""
-elif [[ "$IMAGE_TAG" == *:* ]]; then
-    IMAGE_NAME="${IMAGE_TAG%%:*}"
-    TAG="${IMAGE_TAG##*:}"
-    DIGEST=""
-else
-    IMAGE_NAME="$IMAGE_TAG"
-    TAG=""
-    DIGEST=""
-fi
-
-# Mostrar datos
-echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
-[[ -n "$SERVICE" ]] && echo -e "   🔹 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
-[[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
-echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
-
-# Preguntas condicionales
-[[ -n "$SERVICE" ]] && read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
-[[ -n "$IMAGE_NAME" ]] && read -rp '❓ ¿Eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
-read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
-
-IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
-
-# Eliminaciones
-[[ "$DEL_SERVICE" =~ ^[sS]$ ]] && gcloud run services delete "$SERVICE" --platform managed --region "$REGION" --quiet
-
-if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
-    echo -e "${CYAN}🧹 Verificando imagen...${RESET}"
-    if [[ -n "$DIGEST" ]]; then
-        TAGS_JSON=$(gcloud artifacts docker tags list "$IMAGE_PATH" --format=json)
-        TAGS_LINKED=($(echo "$TAGS_JSON" | jq -r --arg digest "$DIGEST" '.[] | select(.version == $digest) | .tag'))
-
-        if (( ${#TAGS_LINKED[@]} > 1 )); then
-            echo -e "${YELLOW}⚠️ Otros tags apuntan al digest: ${RESET}${TAGS_LINKED[*]}"
-            read -rp '❓ ¿Eliminar de todos modos? (s/n): ' CONFIRM
-            [[ "$CONFIRM" =~ ^[sS]$ ]] && gcloud artifacts docker images delete "${IMAGE_PATH}@${DIGEST}" --quiet
-        else
-            gcloud artifacts docker images delete "${IMAGE_PATH}@${DIGEST}" --quiet
-        fi
-    elif [[ -n "$TAG" ]]; then
-        gcloud artifacts docker images delete "${IMAGE_PATH}:$TAG" --quiet
-    fi
-fi
-
-[[ "$DEL_REPO" =~ ^[sS]$ ]] && gcloud artifacts repositories delete "$REPO" --location="$REPO_REGION" --quiet
-
-echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
+echo -e "\n${GREEN}✅ Operación completada.${RESET}"
