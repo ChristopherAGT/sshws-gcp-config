@@ -110,14 +110,37 @@ if [[ "$DEL_SERVICE" == "s" || "$DEL_SERVICE" == "S" ]]; then
 fi
 
 if [[ "$DEL_IMAGE" == "s" || "$DEL_IMAGE" == "S" ]]; then
-    echo -e "${CYAN}🧹 Eliminando imagen...${RESET}"
+    echo -e "${CYAN}🧹 Verificando imagen para eliminar...${RESET}"
 
-    if [[ -n "$TAG" ]]; then
-        gcloud artifacts docker images delete "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME:$TAG" --quiet
-    fi
+    IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME"
 
     if [[ -n "$DIGEST" ]]; then
-        gcloud artifacts docker images delete "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$SELECTED_REPO/$IMAGE_NAME@$DIGEST" --quiet
+        echo -e "🔍 Buscando tags asociados al digest ${DIGEST}..."
+
+        # Listar todos los tags de la imagen
+        TAGS_JSON=$(gcloud artifacts docker tags list "$IMAGE_PATH" --format=json)
+
+        # Filtrar tags que apuntan al mismo digest
+        TAGS_LINKED=($(echo "$TAGS_JSON" | jq -r --arg digest "$DIGEST" '.[] | select(.version == $digest) | .tag'))
+
+        if (( ${#TAGS_LINKED[@]} > 1 )); then
+            echo -e "${YELLOW}⚠️ Hay otros tags apuntando a este digest:${RESET} ${TAGS_LINKED[*]}"
+            read -rp $'\n❓ ¿Deseas eliminar la imagen de todos modos? (s/n): ' CONFIRM_DEL
+            if [[ "$CONFIRM_DEL" != "s" && "$CONFIRM_DEL" != "S" ]]; then
+                echo -e "${YELLOW}❌ Eliminación cancelada.${RESET}"
+            else
+                echo -e "${CYAN}🧹 Eliminando imagen por digest...${RESET}"
+                gcloud artifacts docker images delete "${IMAGE_PATH}@${DIGEST}" --quiet
+            fi
+        else
+            echo -e "${CYAN}🧹 No hay otros tags ligados a este digest. Eliminando imagen...${RESET}"
+            gcloud artifacts docker images delete "${IMAGE_PATH}@${DIGEST}" --quiet
+        fi
+    fi
+
+    if [[ -n "$TAG" ]]; then
+        echo -e "${CYAN}🧹 Eliminando imagen por tag...${RESET}"
+        gcloud artifacts docker images delete "${IMAGE_PATH}:$TAG" --quiet
     fi
 fi
 
