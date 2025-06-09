@@ -72,14 +72,7 @@ for REPO in $REPOS; do
     TAG=$(echo "$TAGS" | cut -d';' -f1 | cut -d',' -f1)
     IMAGE_FULL="${IMAGE}:${TAG}"
 
-    MATCHED_SERVICE=""
-    for KEY in "${!SERVICE_MAP[@]}"; do
-      if [[ "$KEY" == *"$IMAGE_FULL" ]]; then
-        MATCHED_SERVICE="${SERVICE_MAP[$KEY]}"
-        break
-      fi
-    done
-
+    MATCHED_SERVICE="${SERVICE_MAP[$IMAGE_FULL]}"
     echo -e "${GREEN}${INDEX}) 🗂️ Repositorio:         ${REPO_SHORT} (${REPO_LOCATION})${RESET}"
     echo -e "    📦 Imagen Docker:    ${TAG:+$IMAGE_FULL}"
     if [[ -n "$MATCHED_SERVICE" ]]; then
@@ -131,9 +124,10 @@ echo -e "   🔹 Repositorio: ${CYAN}${SELECTED_REPO} (${SELECTED_REGION})${RESE
 echo -e "   🔹 Imagen Docker: ${GREEN}${FULL_IMAGE}${RESET}"
 
 # ¿Tiene servicio asociado?
-if [[ -n "${SERVICE_MAP[$FULL_IMAGE]}" ]]; then
-  SERVICE_NAME=$(echo "${SERVICE_MAP[$FULL_IMAGE]}" | cut -d'|' -f1)
-  SERVICE_REGION=$(echo "${SERVICE_MAP[$FULL_IMAGE]}" | cut -d'|' -f2)
+MATCHED_SERVICE="${SERVICE_MAP[$FULL_IMAGE]}"
+if [[ -n "$MATCHED_SERVICE" ]]; then
+  SERVICE_NAME=$(echo "$MATCHED_SERVICE" | cut -d'|' -f1)
+  SERVICE_REGION=$(echo "$MATCHED_SERVICE" | cut -d'|' -f2)
   echo -e "   🔹 Servicio Cloud Run: ${SERVICE_NAME} (${SERVICE_REGION})"
   read -rp $'\n❓ ¿Eliminar servicio Cloud Run? (s/n): ' DEL_SERVICE
 fi
