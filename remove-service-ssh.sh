@@ -158,6 +158,34 @@ IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
 if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
     echo -e "${CYAN}🧹 Verificando imagen...${RESET}"
+
+    # Verificar si existe otro servicio que usa esta imagen
+    OTHER_SERVICE_FOUND=0
+    for CHECK_REGION in "${REGIONS[@]}"; do
+        SERVICES_IN_REGION=$(gcloud run services list --platform managed --region "$CHECK_REGION" --format=json 2>/dev/null)
+        for row in $(echo "$SERVICES_IN_REGION" | jq -r '.[] | @base64'); do
+            _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
+            S_NAME=$(_jq '.metadata.name')
+            S_IMAGE=$(
+                gcloud run services describe "$S_NAME" \
+                --platform managed --region "$CHECK_REGION" \
+                --format="value(spec.template.spec.containers[0].image)" 2>/dev/null
+            )
+            if [[ "$S_IMAGE" == *"$IMAGE_NAME"* ]]; then
+                if [[ "$S_NAME" != "$SERVICE" || "$CHECK_REGION" != "$REGION" ]]; then
+                    OTHER_SERVICE_FOUND=1
+                    break 2
+                fi
+            fi
+        done
+    done
+
+    if (( OTHER_SERVICE_FOUND == 1 )); then
+        echo -e "${RED}❌ ERROR: No se puede borrar la imagen porque existe otro servicio Cloud Run que la está usando.${RESET}"
+        exit 1
+    fi
+
+    # Si no encontró otro servicio usando la imagen, procede a eliminar
     if [[ -n "$DIGEST" ]]; then
         TAGS_JSON=$(gcloud artifacts docker tags list "$IMAGE_PATH" --format=json)
         TAGS_LINKED=($(echo "$TAGS_JSON" | jq -r --arg digest "$DIGEST" '.[] | select(.version == $digest) | .tag'))
