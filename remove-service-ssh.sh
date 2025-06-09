@@ -75,14 +75,14 @@ for repo in "${REPO_NAMES[@]}"; do
     if [[ -n "$INFO" ]]; then
         while IFS='|' read -r _ SERVICE REGION IMAGE; do
             [[ -z "$SERVICE" ]] && continue
-            echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Servicio:${RESET} $SERVICE (${REGION})"
-            echo -e "    📦 Imagen: ${GREEN}${IMAGE}${RESET}"
-            echo -e "    🗂️  Repo: ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
+            printf "%s) ☁️ %-20s %s\n" "$INDEX" "Servicio Cloud Run:" "$SERVICE ($REGION)"
+            printf "    📦 %-20s %s\n" "Imagen Docker:" "$IMAGE"
+            printf "    🗂️  %-20s %s\n" "Repositorio:" "$REPO_NAME ($REPO_REGION)"
             ITEMS+=("$SERVICE|$REGION|$IMAGE|$REPO_NAME|$REPO_REGION")
             ((INDEX++))
         done <<< "$INFO"
     else
-        echo -e "${YELLOW}$INDEX)${RESET} ${BOLD}Repositorio sin servicio ni imagen:${RESET} ${CYAN}${REPO_NAME}${RESET} (${REPO_REGION})"
+        printf "%s) %-20s %s\n" "$INDEX" "Repositorio sin servicio ni imagen:" "$REPO_NAME ($REPO_REGION)"
         ITEMS+=("|||$REPO_NAME|$REPO_REGION")
         ((INDEX++))
     fi
@@ -126,9 +126,9 @@ fi
 
 # Mostrar datos
 echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
-[[ -n "$SERVICE" ]] && echo -e "   🔹 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
-[[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
-echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
+[[ -n "$SERVICE" ]] && printf "   %-20s %s\n" "Servicio Cloud Run:" "$SERVICE ($REGION)"
+[[ -n "$IMAGE_NAME" ]] && printf "   %-20s %s\n" "Imagen Docker:" "$IMAGE_NAME${TAG:+:$TAG}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
+printf "   %-20s %s\n" "Repositorio:" "$REPO_NAME ($REPO_REGION)"
 
 # Preguntas condicionales
 [[ -n "$SERVICE" ]] && read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
