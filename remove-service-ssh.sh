@@ -97,9 +97,8 @@ echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
 read -r SELECCION
 
 if [[ "$SELECCION" == "0" ]]; then
-    read -rp $'\n❓ ¿Seguro que desea salir? (s/n): ' CONFIRM_EXIT
-    [[ "$CONFIRM_EXIT" =~ ^[sS]$ ]] && echo -e "${YELLOW}🚪 Saliendo...${RESET}" && exit 0
-    echo -e "${GREEN}🔄 Volviendo al menú...${RESET}" && exec "$0"
+    echo -e "${YELLOW}🚪 Saliendo...${RESET}"
+    exit 0
 fi
 
 IDX=$((SELECCION - 1))
@@ -138,10 +137,9 @@ read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
-# Eliminación del servicio
+# Eliminaciones
 [[ "$DEL_SERVICE" =~ ^[sS]$ ]] && gcloud run services delete "$SERVICE" --platform managed --region "$REGION" --quiet
 
-# Eliminación de la imagen
 if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
     echo -e "${CYAN}🧹 Verificando imagen...${RESET}"
     if [[ -n "$DIGEST" ]]; then
@@ -160,15 +158,6 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
     fi
 fi
 
-# Eliminación del repositorio (solo si está vacío)
-if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
-    COUNT_IMAGES=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO" --format="value(NAME)" 2>/dev/null | wc -l)
-    if (( COUNT_IMAGES == 0 )); then
-        gcloud artifacts repositories delete "$REPO" --location="$REPO_REGION" --quiet
-        echo -e "${GREEN}🗑️ Repositorio eliminado correctamente.${RESET}"
-    else
-        echo -e "${YELLOW}⚠️ El repositorio aún contiene imágenes y no se eliminó.${RESET}"
-    fi
-fi
+[[ "$DEL_REPO" =~ ^[sS]$ ]] && gcloud artifacts repositories delete "$REPO" --location="$REPO_REGION" --quiet
 
 echo -e "\n${GREEN}✅ Proceso finalizado.${RESET}"
