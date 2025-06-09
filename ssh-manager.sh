@@ -13,7 +13,7 @@ function construir_servicio() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${YELLOW}⚙️ Construyendo un nuevo servicio...${RESET}"
 
-    wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/blob/main/build-service-ssh.sh -O build-service-ssh.sh
+    wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/build-service-ssh.sh -O build-service-ssh.sh
     if [[ $? -ne 0 || ! -s build-service-ssh.sh ]]; then
         echo -e "${RED}❌ Error al descargar el script de construcción.${RESET}"
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
