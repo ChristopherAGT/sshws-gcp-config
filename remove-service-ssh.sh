@@ -20,7 +20,7 @@ spinner() {
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
     i=$(( (i+1) % 4 ))
-    printf "\r$(tput el)🔄 Buscando servicios en Cloud Run... ${spin:i:1}"
+    printf "\r$(tput el)🔄 Buscando servicios en todas las regiones... ${spin:i:1}"
     sleep $delay
   done
   printf "\r$(tput el)✅️ Servicios recolectados exitosamente.\n"
@@ -132,7 +132,7 @@ done
 [[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
 
 while true; do
-  echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
+  echo -e "\n${BOLD}0) Salir sin hacer cambios${RESET}"
   echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
   read -r SELECCION
 
@@ -178,9 +178,9 @@ echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
 [[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
 echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
-[[ -n "$SERVICE" ]] && read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
-[[ -n "$IMAGE_NAME" ]] && read -rp '❓ ¿Eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
-read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
+[[ -n "$SERVICE" ]] && read -rp $'\n⚠️ ¿Desea eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
+[[ -n "$IMAGE_NAME" ]] && read -rp '⚠️ ¿Desea eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
+read -rp '⚠️ ¿Desea eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
