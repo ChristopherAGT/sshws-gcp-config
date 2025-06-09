@@ -26,11 +26,11 @@ echo -e "${RESET}"
 declare -a ITEMS
 INDEX=1
 
-# Obtener todos los repositorios del proyecto
+# Obtener todos los repositorios
 REPOS_JSON=$(gcloud artifacts repositories list --format=json)
 REPO_NAMES=($(echo "$REPOS_JSON" | jq -r '.[].name'))
 
-# Obtener todos los servicios por región
+# Mapear servicios
 declare -A SERVICE_MAP
 for REGION in "${REGIONS[@]}"; do
     SERVICES=$(gcloud run services list --platform managed --region "$REGION" --format=json 2>/dev/null)
@@ -45,7 +45,7 @@ for REGION in "${REGIONS[@]}"; do
             --format="value(spec.template.spec.containers[0].image)" 2>/dev/null
         )
 
-        # Extraer detalles de imagen
+        # Extraer datos de la imagen
         if [[ "$IMAGE" =~ ^([a-z0-9-]+)-docker\.pkg\.dev/([^/]+)/([^/]+)/([^@:/]+)([@:][^ ]+)?$ ]]; then
             REPO_REGION="${BASH_REMATCH[1]}"
             PROJECT="${BASH_REMATCH[2]}"
@@ -64,34 +64,33 @@ for REGION in "${REGIONS[@]}"; do
     done
 done
 
-# Mostrar repositorios con su información
+# Mostrar todos los repositorios
 for repo in "${REPO_NAMES[@]}"; do
     REPO_REGION=$(echo "$repo" | cut -d/ -f4)
     REPO_NAME=$(echo "$repo" | cut -d/ -f6)
-
     KEY="$REPO_REGION|$REPO_NAME"
     INFO="${SERVICE_MAP[$KEY]}"
 
     if [[ -n "$INFO" ]]; then
         while IFS='|' read -r _ SERVICE REGION IMAGE; do
             [[ -z "$SERVICE" ]] && continue
-            printf "%s) ☁️ %-20s %s\n" "$INDEX" "Servicio Cloud Run:" "$SERVICE ($REGION)"
+            printf "${YELLOW}%s)${RESET} ☁️ %-20s %s\n" "$INDEX" "Servicio Cloud Run:" "$SERVICE ($REGION)"
             printf "    📦 %-20s %s\n" "Imagen Docker:" "$IMAGE"
             printf "    🗂️  %-20s %s\n" "Repositorio:" "$REPO_NAME ($REPO_REGION)"
             ITEMS+=("$SERVICE|$REGION|$IMAGE|$REPO_NAME|$REPO_REGION")
             ((INDEX++))
         done <<< "$INFO"
     else
-        printf "%s) %-20s %s\n" "$INDEX" "Repositorio sin servicio ni imagen:" "$REPO_NAME ($REPO_REGION)"
+        printf "${YELLOW}%s)${RESET} ☁️ %-20s %s\n" "$INDEX" "Servicio Cloud Run:" "-"
+        printf "    📦 %-20s %s\n" "Imagen Docker:" "-"
+        printf "    🗂️  %-20s %s\n" "Repositorio:" "$REPO_NAME ($REPO_REGION)"
         ITEMS+=("|||$REPO_NAME|$REPO_REGION")
         ((INDEX++))
     fi
 done
 
-# Si no hay nada
 [[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
 
-# Menú con opción 0 para cancelar
 echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
 echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
 read -r SELECCION
@@ -109,7 +108,7 @@ fi
 
 IFS='|' read -r SERVICE REGION IMAGE_TAG REPO REPO_REGION <<< "${ITEMS[$IDX]}"
 
-# Procesamiento de imagen
+# Procesar imagen
 if [[ "$IMAGE_TAG" == *@sha256:* ]]; then
     IMAGE_NAME=$(echo "$IMAGE_TAG" | cut -d'@' -f1)
     DIGEST=$(echo "$IMAGE_TAG" | cut -d'@' -f2)
@@ -124,20 +123,17 @@ else
     DIGEST=""
 fi
 
-# Mostrar datos
 echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
-[[ -n "$SERVICE" ]] && printf "   %-20s %s\n" "Servicio Cloud Run:" "$SERVICE ($REGION)"
-[[ -n "$IMAGE_NAME" ]] && printf "   %-20s %s\n" "Imagen Docker:" "$IMAGE_NAME${TAG:+:$TAG}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
-printf "   %-20s %s\n" "Repositorio:" "$REPO_NAME ($REPO_REGION)"
+[[ -n "$SERVICE" ]] && echo -e "   🔹 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
+[[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
+echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
-# Preguntas condicionales
 [[ -n "$SERVICE" ]] && read -rp $'\n❓ ¿Eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
 [[ -n "$IMAGE_NAME" ]] && read -rp '❓ ¿Eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
 read -rp '❓ ¿Eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
-# Eliminaciones
 [[ "$DEL_SERVICE" =~ ^[sS]$ ]] && gcloud run services delete "$SERVICE" --platform managed --region "$REGION" --quiet
 
 if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
