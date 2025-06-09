@@ -176,12 +176,12 @@ done
 
 while true; do
   echo -e "\n${BOLD}0) Salir sin hacer cambios${RESET}"
-  echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
+  echo -ne "${BOLD}\nSeleccione el ítem a gestionar: ${RESET}"
   read -r SELECCION
 
   # Validar que sea número entero
   if ! [[ "$SELECCION" =~ ^[0-9]+$ ]]; then
-    echo -e "${RED}❌ Entrada no válida. Por favor, ingrese un número.${RESET}"
+    echo -e "${RED}❌ Entrada no válida. Por favor, seleccione una opción.${RESET}"
     continue
   fi
 
@@ -192,7 +192,7 @@ while true; do
 
   IDX=$((SELECCION - 1))
   if (( IDX < 0 || IDX >= ${#ITEMS[@]} )); then
-    echo -e "${RED}❌ Selección fuera de rango. Intente nuevamente.${RESET}"
+    echo -e "${RED}❌ Selección no válida. Intente nuevamente.${RESET}"
   else
     break
   fi
