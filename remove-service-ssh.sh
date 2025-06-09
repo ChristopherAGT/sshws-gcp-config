@@ -131,20 +131,29 @@ done
 
 [[ ${#ITEMS[@]} -eq 0 ]] && echo -e "${RED}❌ No se encontraron servicios ni repositorios.${RESET}" && exit 0
 
-echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
-echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
-read -r SELECCION
+while true; do
+  echo -e "\n${BOLD}0) Cancelar y salir${RESET}"
+  echo -ne "${BOLD}\nSeleccione el número del ítem a gestionar: ${RESET}"
+  read -r SELECCION
 
-if [[ "$SELECCION" == "0" ]]; then
-  echo -e "${YELLOW}🚪 Saliendo...${RESET}"
-  exit 0
-fi
+  # Validar que sea número entero
+  if ! [[ "$SELECCION" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}❌ Entrada no válida. Por favor, ingrese un número.${RESET}"
+    continue
+  fi
 
-IDX=$((SELECCION - 1))
-if (( IDX < 0 || IDX >= ${#ITEMS[@]} )); then
-  echo -e "${RED}❌ Selección inválida.${RESET}"
-  exit 1
-fi
+  if [[ "$SELECCION" == "0" ]]; then
+    echo -e "${YELLOW}🚪 Saliendo...${RESET}"
+    exit 0
+  fi
+
+  IDX=$((SELECCION - 1))
+  if (( IDX < 0 || IDX >= ${#ITEMS[@]} )); then
+    echo -e "${RED}❌ Selección fuera de rango. Intente nuevamente.${RESET}"
+  else
+    break
+  fi
+done
 
 IFS='|' read -r SERVICE REGION IMAGE_TAG REPO REPO_REGION <<< "${ITEMS[$IDX]}"
 
