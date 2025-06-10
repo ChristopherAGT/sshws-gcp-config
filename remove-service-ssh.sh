@@ -244,9 +244,9 @@ confirmar() {
 }
 
 # Confirmaciones usando la función
-[[ -n "$SERVICE" ]] && confirmar $'\n⚠️ ¿Desea eliminar el servicio de Cloud Run?' && DEL_SERVICE="s"
-[[ -n "$IMAGE_NAME" ]] && confirmar '⚠️ ¿Desea eliminar la Imagen Docker del Repositorio?' && DEL_IMAGE="s"
-confirmar '⚠️ ¿Desea eliminar el repositorio del Artifact Registry?' && DEL_REPO="s"
+[[ -n "$SERVICE" ]] && confirmar $'\n⛔️ ¿Desea eliminar el servicio de Cloud Run?' && DEL_SERVICE="s"
+[[ -n "$IMAGE_NAME" ]] && confirmar '⛔️ ¿Desea eliminar la Imagen Docker del Repositorio?' && DEL_IMAGE="s"
+confirmar '⛔️ ¿Desea eliminar el repositorio del Artifact Registry?' && DEL_REPO="s"
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
