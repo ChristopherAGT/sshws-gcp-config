@@ -21,7 +21,8 @@ trap 'rm -f "${TEMP_FILES[@]}"' EXIT
 # Función para pausar antes de volver al menú
 pausa_menu() {
     echo
-    read -n 1 -s -r -p "${GREEN}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    echo -e "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    read -n 1 -s
     echo
 }
 
