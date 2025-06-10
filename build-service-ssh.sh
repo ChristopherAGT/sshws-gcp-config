@@ -13,9 +13,8 @@ amarillo="\e[1;33m"
 cyan="\e[1;36m"
 neutro="\e[0m"
 
-# 🔧 Regiones por defecto (se sobrescriben con selección)
-REPO_REGION="us-east1"      # Región para el repositorio de Artifact Registry
-DEPLOY_REGION="us-east1"    # Región para el despliegue en Cloud Run
+# 🔧 Región por defecto (se sobrescribirá con selección)
+REGION="us-east1"  # Carolina del Sur
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -164,77 +163,21 @@ while true; do
                     echo -e "${neutro}"
                     echo -e "${rojo}❌ Selección inválida. Por favor ingrese un número válido.${neutro}"
                   else
-                    REPO_REGION=${REGION_CODES[$((REGION_INDEX-1))]}
-echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
-
-# 🐳 OPCIONES DE IMAGEN DOCKER (solo si se usa repositorio existente)
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏗️ OPCIONES DE IMAGEN DOCKER"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-PS3=$'\e[33mSeleccione una opción:\e[0m '
-select img_option in "Usar imagen existente" "Crear nueva imagen"; do
-    case $REPLY in
-        1)
-            echo -e "${azul}🔍 Obteniendo lista de imágenes disponibles en el repositorio '${REPO_NAME}'...${neutro}"
-IMAGE_LIST=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="value(IMAGE)")
-
-if [[ -z "$IMAGE_LIST" ]]; then
-    echo -e "${rojo}❌ No hay imágenes disponibles en este repositorio.${neutro}"
-    exit 1
-fi
-
-PS3=$'\e[33mSeleccione una imagen existente:\e[0m '
-select IMAGE_PATH in $IMAGE_LIST; do
-    if [[ -n "$IMAGE_PATH" ]]; then
-        IMAGE_NAME=$(basename "$IMAGE_PATH")
-        IMAGE_TAG="1.0"  # Puedes cambiar esto si deseas permitir elegir el tag también
-        echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME${neutro}"
-        break
-    else
-        echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
-    fi
-done
-        2)
-            while true; do
-                echo -e "${azul}📛 Ingresa un nombre para la nueva imagen Docker (Enter para usar 'gcp'):${neutro}"
-                read -p "📝 Nombre de la imagen: " input_image
-                IMAGE_NAME="${input_image:-gcp}"
-                IMAGE_TAG="1.0"
-                IMAGE_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
-                IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
-
-                echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
-                if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
-                    echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-                    echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-                else
-                    echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+                    REGION=${REGION_CODES[$((REGION_INDEX-1))]}
+                    echo -e "${verde}✔ Región seleccionada: $REPO_REGION${neutro}"
                     break
-                fi
-            done
-            break
-            ;;
-        *)
-            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
-            ;;
-    esac
-done
-  
-break
-fi
-done
-# -------------------- FIN BLOQUE SELECCIÓN DE REGIÓN --------------------
+                  fi
+                done
+                # -------------------- FIN BLOQUE SELECCIÓN DE REGIÓN --------------------
 
-break 2
-;;
-*)
-  echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
-  break
-  ;;
-esac
-done
+                break 2
+                ;;
+            *)
+                echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+                break
+                ;;
+        esac
+    done
 done
 
 echo -e "${cyan}"
@@ -306,7 +249,7 @@ select img_option in "Usar imagen existente" "Crear nueva imagen"; do
                 read -p "📝 Nombre de la imagen: " input_image
                 IMAGE_NAME="${input_image:-gcp}"
                 IMAGE_TAG="1.0"
-                IMAGE_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+                IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
                 IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
 
                 echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
@@ -375,29 +318,6 @@ echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
 echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
 
-  # -------------------- BLOQUE FINAL SELECCIÓN REGIÓN DESPLIEGUE --------------------
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🌍 SELECCIÓN DE REGIÓN PARA DESPLIEGUE EN CLOUD RUN"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${neutro}"
-
-for i in "${!REGIONS[@]}"; do
-  printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
-done
-
-while true; do
-  read -p "Ingrese el número de la región donde desplegarás el servicio: " DEPLOY_INDEX
-  if ! [[ "$DEPLOY_INDEX" =~ ^[0-9]+$ ]] || (( DEPLOY_INDEX < 1 || DEPLOY_INDEX > ${#REGION_CODES[@]} )); then
-    echo -e "${rojo}❌ Selección inválida. Intenta nuevamente.${neutro}"
-  else
-    DEPLOY_REGION=${REGION_CODES[$((DEPLOY_INDEX-1))]}
-    echo -e "${verde}✔ Región de despliegue seleccionada: $DEPLOY_REGION${neutro}"
-    break
-  fi
-done
-# -------------------- FIN BLOQUE FINAL SELECCIÓN REGIÓN DESPLIEGUE --------------------
-  
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -441,7 +361,7 @@ PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectN
 SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
   --image "$IMAGE_PATH:$IMAGE_TAG" \
   --platform managed \
-  --region "$DEPLOY_REGION" \
+  --region "$REGION" \
   --allow-unauthenticated \
   --port 8080 \
   --timeout 3600 \
@@ -457,7 +377,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Dominio regional del servicio
-REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${DEPLOY_REGION}.run.app"
+REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
 
 # Mostrar resumen final
 echo -e "${verde}"
@@ -467,10 +387,9 @@ echo "╠═══════════════════════�
 echo "║ 🗂️ ID del Proyecto GCP  : $PROJECT_ID"
 echo "║ 🔢 Número de Proyecto   : $PROJECT_NUMBER"
 echo "║ 🗃️ Repositorio Docker   : $REPO_NAME"
-echo "║ 📍 Región de Despliegue : $REPO_REGION"
 echo "║ 🖼️ Nombre de la Imagen  : $IMAGE_NAME:$IMAGE_TAG"
 echo "║ 📛 Nombre del Servicio  : $SERVICE_NAME"
-echo "║ 📍 Región de Despliegue : $DEPLOY_REGION"
+echo "║ 📍 Región de Despliegue : $REGION"
 echo "║ 🌐 URL del Servicio     : $SERVICE_URL"
 echo "║ 🌐 Dominio Regional     : $REGIONAL_DOMAIN"
 echo "╚════════════════════════════════════════════════════════════╝"
