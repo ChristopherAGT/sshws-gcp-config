@@ -76,7 +76,7 @@ PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔍 RECOLECTANDO SERVICIOS CLOUD RUN, IMAGENES DOCKER Y REPOSITORIOS DISPONIBLES"
+echo "🔍 RECOLECTANDO SERVICIOS CLOUD RUN, IMAGENES Y REPOSITORIOS EXISTENTES"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
@@ -216,10 +216,10 @@ fi
 
 # Mostrar datos
 echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
-[[ -n "$SERVICE" ]] && echo -e "   🔹 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
-[[ -z "$SERVICE" ]] && echo -e "   🔹 Servicio: (ninguno)"
-[[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
-echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
+[[ -n "$SERVICE" ]] && echo -e "   🚀 Servicio: ${BOLD}${SERVICE}${RESET} (${REGION})"
+[[ -z "$SERVICE" ]] && echo -e "   🚀 Servicio: (ninguno)"
+[[ -n "$IMAGE_NAME" ]] && echo -e "   📸 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
+echo -e "   📦 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
 # Función para pedir confirmación con validación
 confirmar() {
