@@ -221,15 +221,43 @@ echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
 [[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
 echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
-[[ -n "$SERVICE" ]] && read -rp $'\n⚠️ ¿Desea eliminar el servicio de Cloud Run? (s/n): ' DEL_SERVICE
-[[ -n "$IMAGE_NAME" ]] && read -rp '⚠️ ¿Desea eliminar la Imagen Docker del Repositorio? (s/n): ' DEL_IMAGE
-read -rp '⚠️ ¿Desea eliminar el repositorio del Artifact Registry? (s/n): ' DEL_REPO
+# Función para pedir confirmación con validación
+confirmar() {
+  local pregunta="$1"
+  local respuesta
+
+  while true; do
+    read -rp "$pregunta (s/n): " respuesta
+    respuesta="${respuesta,,}"  # convertir a minúscula
+
+    if [[ -z "$respuesta" ]]; then
+      echo -e "${YELLOW}❎ Opción no seleccionada. Se tomará como NO.${RESET}"
+      return 1
+    elif [[ "$respuesta" == "s" ]]; then
+      return 0
+    elif [[ "$respuesta" == "n" ]]; then
+      return 1
+    else
+      echo -e "${RED}⚠️ Opción inválida. Por favor, escriba ${BOLD}s${RESET}${RED} para sí o ${BOLD}n${RESET}${RED} para no.${RESET}"
+    fi
+  done
+}
+
+# Confirmaciones usando la función
+[[ -n "$SERVICE" ]] && confirmar $'\n⚠️ ¿Desea eliminar el servicio de Cloud Run?' && DEL_SERVICE="s"
+[[ -n "$IMAGE_NAME" ]] && confirmar '⚠️ ¿Desea eliminar la Imagen Docker del Repositorio?' && DEL_IMAGE="s"
+confirmar '⚠️ ¿Desea eliminar el repositorio del Artifact Registry?' && DEL_REPO="s"
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
-[[ "$DEL_SERVICE" =~ ^[sS]$ ]] && gcloud run services delete "$SERVICE" --platform managed --region "$REGION" --quiet
+# Eliminar servicio si se confirmó
+if [[ "$DEL_SERVICE" == "s" ]]; then
+  echo -e "${CYAN}🗑️ Eliminando servicio ${SERVICE}...${RESET}"
+  gcloud run services delete "$SERVICE" --platform managed --region "$REGION" --quiet
+fi
 
-if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
+# Eliminar imagen si se confirmó
+if [[ "$DEL_IMAGE" == "s" && -n "$IMAGE_NAME" ]]; then
   echo -e "${CYAN}🧹 Verificando imagen...${RESET}"
 
   # Verificar si existe otro servicio que usa esta imagen
@@ -279,8 +307,8 @@ if [[ "$DEL_IMAGE" =~ ^[sS]$ && -n "$IMAGE_NAME" ]]; then
   fi
 fi
 
-if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
-  # Verificar si el repositorio está vacío (sin imágenes)
+# Eliminar repositorio si se confirmó
+if [[ "$DEL_REPO" == "s" ]]; then
   IMAGES_COUNT=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO" --format="value(NAME)" 2>/dev/null | wc -l)
   if (( IMAGES_COUNT == 0 )); then
     echo -e "${CYAN}🗑️ Eliminando repositorio ${REPO}...${RESET}"
