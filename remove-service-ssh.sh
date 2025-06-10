@@ -76,7 +76,7 @@ PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔍 RECOLECTANDO SERVICIOS DE CLOUD RUN Y REPOSITORIOS DE ARTIFACT..."
+echo "🔍 RECOLECTANDO SERVICIOS CLOUD RUN, IMAGENES DOCKER Y REPOSITORIOS DISPONIBLES"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${RESET}"
 
