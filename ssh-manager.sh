@@ -9,34 +9,43 @@ BLUE="\033[1;34m"
 CYAN="\033[1;36m"
 RESET="\033[0m"
 
+# Archivos temporales a eliminar
+TEMP_FILES=("build-service-ssh.sh" "edit-service-ssh.sh" "remove-service-ssh.sh")
+
+# Eliminar archivos temporales al salir o al interrumpir con Ctrl+C
+trap 'rm -f "${TEMP_FILES[@]}"' EXIT
+
+# Función para pausar antes de volver al menú
+pausa_menu() {
+    echo
+    read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    echo
+}
+
 function construir_servicio() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${YELLOW}⚙️ Construyendo un nuevo servicio...${RESET}"
 
     wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/build-service-ssh.sh -O build-service-ssh.sh
-    if [[ $? -ne 0 || ! -s build-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de construcción.${RESET}"
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 || ! -s build-service-ssh.sh ]]; then
+        echo -e "${RED}❌ Error al descargar el script de construcción (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
     bash build-service-ssh.sh
-    if [[ $? -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de construcción.${RESET}"
-        rm -f build-service-ssh.sh
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de construcción (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
-    rm -f build-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio construido correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-
-    read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-    echo
+    pausa_menu
 }
 
 function editar_servicio() {
@@ -44,29 +53,25 @@ function editar_servicio() {
     echo -e "${CYAN}✏️ Editando un servicio...${RESET}"
 
     wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/edit-service-ssh.sh -O edit-service-ssh.sh
-    if [[ $? -ne 0 || ! -s edit-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de edición.${RESET}"
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 || ! -s edit-service-ssh.sh ]]; then
+        echo -e "${RED}❌ Error al descargar el script de edición (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
     bash edit-service-ssh.sh
-    if [[ $? -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de edición.${RESET}"
-        rm -f edit-service-ssh.sh
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de edición (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
-    rm -f edit-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio editado correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-
-    read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-    echo
+    pausa_menu
 }
 
 function remover_servicio() {
@@ -74,29 +79,25 @@ function remover_servicio() {
     echo -e "${RED}🧹 Removiendo un servicio...${RESET}"
 
     wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/remove-service-ssh.sh -O remove-service-ssh.sh
-    if [[ $? -ne 0 || ! -s remove-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de eliminación.${RESET}"
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 || ! -s remove-service-ssh.sh ]]; then
+        echo -e "${RED}❌ Error al descargar el script de eliminación (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
     bash remove-service-ssh.sh
-    if [[ $? -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de eliminación.${RESET}"
-        rm -f remove-service-ssh.sh
-        read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        echo
+    exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de eliminación (código $exit_code).${RESET}"
+        pausa_menu
         return 1
     fi
 
-    rm -f remove-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio removido correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-
-    read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-    echo
+    pausa_menu
 }
 
 function mostrar_menu() {
@@ -115,13 +116,13 @@ function mostrar_menu() {
         read -r opcion
 
         case $opcion in
-            1) 
+            1)
                 construir_servicio
                 ;;
             2)
                 editar_servicio
                 ;;
-            3) 
+            3)
                 remover_servicio
                 ;;
             4)
@@ -132,7 +133,7 @@ function mostrar_menu() {
                 sleep 1
                 exit 0
                 ;;
-            *) 
+            *)
                 echo -e "${RED}⚠️  Opción inválida. Inténtalo de nuevo.${RESET}"
                 sleep 2
                 ;;
