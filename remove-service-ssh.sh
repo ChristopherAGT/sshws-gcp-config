@@ -5,10 +5,10 @@
 # ╰────────────────────────────────────────────────────────────╯
 
 # Colores y estilo
-RED="\e[31m"
-GREEN="\e[32m"
-CYAN="\e[36m"
-YELLOW="\e[33m"
+RED="\e[1;31m"
+GREEN="\e[1;32m"
+CYAN="\e[1;36m"
+YELLOW="\e[1;33m"
 RESET="\e[0m"
 BOLD="\e[1m"
 
