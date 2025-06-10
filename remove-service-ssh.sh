@@ -221,9 +221,9 @@ echo -e "\n🛠️  ${BOLD}Opciones para:${RESET}"
 [[ -n "$IMAGE_NAME" ]] && echo -e "   🔹 Imagen: ${GREEN}${IMAGE_NAME}${RESET} ${TAG:+(${TAG})}${DIGEST:+ [digest: ${DIGEST:0:12}...]}"
 echo -e "   🔹 Repositorio: ${CYAN}${REPO}${RESET} (${REPO_REGION})"
 
-[[ -n "$SERVICE" ]] && read -rp $'\n⚠️ ¿Desea eliminar servicio de Cloud Run? (s/n): ' DEL_SERVICE
-[[ -n "$IMAGE_NAME" ]] && read -rp '⚠️ ¿Desea eliminar imagen del Artifact Registry? (s/n): ' DEL_IMAGE
-read -rp '⚠️ ¿Desea eliminar repositorio del Artifact Registry? (s/n): ' DEL_REPO
+[[ -n "$SERVICE" ]] && read -rp $'\n⚠️ ¿Desea eliminar el servicio de Cloud Run? (s/n): ' DEL_SERVICE
+[[ -n "$IMAGE_NAME" ]] && read -rp '⚠️ ¿Desea eliminar la Imagen Docker del Repositorio? (s/n): ' DEL_IMAGE
+read -rp '⚠️ ¿Desea eliminar el repositorio del Artifact Registry? (s/n): ' DEL_REPO
 
 IMAGE_PATH="${REPO_REGION}-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 
@@ -290,4 +290,4 @@ if [[ "$DEL_REPO" =~ ^[sS]$ ]]; then
   fi
 fi
 
-echo -e "${GREEN}✔️ Operación completada.${RESET}"
+echo -e "${GREEN}✅️ Operación completada.${RESET}"
