@@ -262,24 +262,21 @@ if [[ "$DEL_IMAGE" == "s" && -n "$IMAGE_NAME" ]]; then
 
   # Verificar si existe otro servicio que usa esta imagen
   OTHER_SERVICE_FOUND=0
-  for CHECK_REGION in "${REGIONS[@]}"; do
-    SERVICES_IN_REGION=$(gcloud run services list --platform managed --region "$CHECK_REGION" --format=json 2>/dev/null)
-    for row in $(echo "$SERVICES_IN_REGION" | jq -r '.[] | @base64'); do
-      _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
-      S_NAME=$(_jq '.metadata.name')
-      S_IMAGE=$(
-        gcloud run services describe "$S_NAME" \
-        --platform managed --region "$CHECK_REGION" \
-        --format="value(spec.template.spec.containers[0].image)" 2>/dev/null
-      )
-      if [[ "$S_IMAGE" == *"$IMAGE_NAME"* ]]; then
-        if [[ "$S_NAME" != "$SERVICE" || "$CHECK_REGION" != "$REGION" ]]; then
-          OTHER_SERVICE_FOUND=1
-          break 2
-        fi
+
+for entry in "${!SERVICE_MAP[@]}"; do
+  INFO="${SERVICE_MAP[$entry]}"
+  while IFS='|' read -r CHECK_SERVICE CHECK_REGION CHECK_IMAGE; do
+    [[ -z "$CHECK_IMAGE" || -z "$CHECK_SERVICE" ]] && continue
+
+    # Compara solo contra otras instancias de la misma imagen
+    if [[ "$CHECK_IMAGE" == *"$IMAGE_TAG"* || "$CHECK_IMAGE" == *"$IMAGE_NAME"* ]]; then
+      if [[ "$CHECK_SERVICE" != "$SERVICE" || "$CHECK_REGION" != "$REGION" ]]; then
+        OTHER_SERVICE_FOUND=1
+        break 2
       fi
-    done
-  done
+    fi
+  done <<< "$INFO"
+done
 
   if (( OTHER_SERVICE_FOUND == 1 )); then
     echo -e "${RED}❌ ERROR: No se puede borrar la imagen porque existe otro servicio Cloud Run que la está usando.${RESET}"
