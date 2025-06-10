@@ -22,22 +22,36 @@ pausa_menu() {
     echo
 }
 
+# Función para eliminar archivo si existe y descargar uno nuevo
+descargar_limpio() {
+    local url=$1
+    local archivo=$2
+
+    if [[ -f $archivo ]]; then
+        rm -f "$archivo"
+    fi
+
+    wget -q "$url" -O "$archivo"
+    if [[ $? -ne 0 || ! -s $archivo ]]; then
+        echo -e "${RED}❌ Error al descargar el archivo '${archivo}'.${RESET}"
+        return 1
+    fi
+    return 0
+}
+
 function construir_servicio() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${YELLOW}⚙️ Construyendo un nuevo servicio...${RESET}"
 
-    wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/build-service-ssh.sh -O build-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 || ! -s build-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de construcción (código $exit_code).${RESET}"
+    descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/build-service-ssh.sh" "build-service-ssh.sh"
+    if [[ $? -ne 0 ]]; then
         pausa_menu
         return 1
     fi
 
     bash build-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de construcción (código $exit_code).${RESET}"
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de construcción.${RESET}"
         pausa_menu
         return 1
     fi
@@ -52,18 +66,15 @@ function editar_servicio() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${CYAN}✏️ Editando un servicio...${RESET}"
 
-    wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/edit-service-ssh.sh -O edit-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 || ! -s edit-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de edición (código $exit_code).${RESET}"
+    descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/edit-service-ssh.sh" "edit-service-ssh.sh"
+    if [[ $? -ne 0 ]]; then
         pausa_menu
         return 1
     fi
 
     bash edit-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de edición (código $exit_code).${RESET}"
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de edición.${RESET}"
         pausa_menu
         return 1
     fi
@@ -78,18 +89,15 @@ function remover_servicio() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${RED}🧹 Removiendo un servicio...${RESET}"
 
-    wget -q https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/remove-service-ssh.sh -O remove-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 || ! -s remove-service-ssh.sh ]]; then
-        echo -e "${RED}❌ Error al descargar el script de eliminación (código $exit_code).${RESET}"
+    descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/remove-service-ssh.sh" "remove-service-ssh.sh"
+    if [[ $? -ne 0 ]]; then
         pausa_menu
         return 1
     fi
 
     bash remove-service-ssh.sh
-    exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        echo -e "${RED}❌ Error al ejecutar el script de eliminación (código $exit_code).${RESET}"
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Error al ejecutar el script de eliminación.${RESET}"
         pausa_menu
         return 1
     fi
