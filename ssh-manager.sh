@@ -9,6 +9,9 @@ BLUE="\033[1;34m"
 CYAN="\033[1;36m"
 RESET="\033[0m"
 
+# Separador reutilizable
+SEPARADOR="${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+
 # Archivos temporales a eliminar
 TEMP_FILES=("build-service-ssh.sh" "edit-service-ssh.sh" "remove-service-ssh.sh")
 
@@ -40,7 +43,7 @@ descargar_limpio() {
 }
 
 function construir_servicio() {
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${YELLOW}⚙️ Construyendo un nuevo servicio...${RESET}"
 
     descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/build-service-ssh.sh" "build-service-ssh.sh"
@@ -56,14 +59,14 @@ function construir_servicio() {
         return 1
     fi
 
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${GREEN}✅ Servicio construido correctamente.${RESET}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     pausa_menu
 }
 
 function editar_servicio() {
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${CYAN}✏️ Editando un servicio...${RESET}"
 
     descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/edit-service-ssh.sh" "edit-service-ssh.sh"
@@ -79,14 +82,14 @@ function editar_servicio() {
         return 1
     fi
 
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${GREEN}✅ Servicio editado correctamente.${RESET}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     pausa_menu
 }
 
 function remover_servicio() {
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${RED}🧹 Removiendo un servicio...${RESET}"
 
     descargar_limpio "https://raw.githubusercontent.com/ChristopherAGT/sshws-gcp-config/main/remove-service-ssh.sh" "remove-service-ssh.sh"
@@ -102,44 +105,42 @@ function remover_servicio() {
         return 1
     fi
 
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     echo -e "${GREEN}✅ Servicio removido correctamente.${RESET}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "$SEPARADOR"
     pausa_menu
 }
 
 function mostrar_menu() {
     while true; do
         clear
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+        echo -e "$SEPARADOR"
         echo -e "${CYAN}    🚀 PANEL DE CONTROL SSH-WS${RESET}"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+        echo -e "$SEPARADOR"
         echo -e "${YELLOW}1️⃣  Construir Servicio${RESET}"
         echo -e "${YELLOW}2️⃣  Editar Servicio${RESET}"
         echo -e "${YELLOW}3️⃣  Remover Servicio${RESET}"
         echo -e "${YELLOW}4️⃣  Salir${RESET}"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+        echo -e "$SEPARADOR"
         echo -ne "${YELLOW}👉 Seleccione una opción [1-4]: ${RESET}"
 
         read -r opcion
 
         case $opcion in
-            1)
-                construir_servicio
-                ;;
-            2)
-                editar_servicio
-                ;;
-            3)
-                remover_servicio
-                ;;
-            4)
-                echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-                echo -e "${YELLOW}👋 Saliendo...${RESET}"
-                echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-                echo -e "${BLUE}👾 Créditos a Leo Duarte${RESET}"
-                sleep 1
-                exit 0
+            [1-4])
+                case $opcion in
+                    1) construir_servicio ;;
+                    2) editar_servicio ;;
+                    3) remover_servicio ;;
+                    4)
+                        echo -e "$SEPARADOR"
+                        echo -e "${YELLOW}👋 Saliendo...${RESET}"
+                        echo -e "$SEPARADOR"
+                        echo -e "${BLUE}👾 Créditos a Leo Duarte${RESET}"
+                        sleep 1
+                        exit 0
+                        ;;
+                esac
                 ;;
             *)
                 echo -e "${RED}⚠️  Opción inválida. Inténtalo de nuevo.${RESET}"
