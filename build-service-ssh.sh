@@ -28,7 +28,7 @@ while true; do
         case $REPLY in
             1)
                 echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
-                REPO_LIST=$(gcloud artifacts repositories list --location="$REPO_REGION" --format="value(name)")
+                REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
                 if [[ -z "$REPO_LIST" ]]; then
                     echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
                     opcion="Crear nuevo"
@@ -164,7 +164,7 @@ while true; do
                     echo -e "${rojo}❌ Selección inválida. Por favor ingrese un número válido.${neutro}"
                   else
                     REGION=${REGION_CODES[$((REGION_INDEX-1))]}
-                    echo -e "${verde}✔ Región seleccionada: $REPO_REGION${neutro}"
+                    echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
                     break
                   fi
                 done
@@ -196,7 +196,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "📦 VERIFICANDO EXISTENCIA DEL REPOSITORIO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 EXISTS=$(gcloud artifacts repositories list \
-    --location="$REPO_REGION" \
+    --location="$REGION" \
     --filter="name~$REPO_NAME" \
     --format="value(name)")
 
@@ -206,7 +206,7 @@ else
     echo -e "${azul}📦 Creando repositorio...${neutro}"
     gcloud artifacts repositories create "$REPO_NAME" \
       --repository-format=docker \
-      --location="$REPO_REGION" \
+      --location="$REGION" \
       --description="Repositorio Docker para SSH-WS en GCP" \
       --quiet
     [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al crear el repositorio.${neutro}" && exit 1
@@ -217,56 +217,38 @@ echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔐 COMPROBANDO AUTENTICACIÓN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-if ! grep -q "$REPO_REGION-docker.pkg.dev" ~/.docker/config.json 2>/dev/null; then
+if ! grep -q "$REGION-docker.pkg.dev" ~/.docker/config.json 2>/dev/null; then
     echo -e "${azul}🔐 Configurando Docker para autenticación...${neutro}"
-    gcloud auth configure-docker "$REPO_REGION-docker.pkg.dev" --quiet
+    gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
     echo -e "${verde}✅ Docker autenticado correctamente.${neutro}"
 else
     echo -e "${verde}🔐 Docker ya autenticado. Omitiendo configuración.${neutro}"
 fi
 
 echo -e "${cyan}"
-echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏗️ OPCIONES DE IMAGEN DOCKER"
+echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-PS3=$'\e[33mSeleccione una opción:\e[0m '
-select img_option in "Usar imagen existente" "Crear nueva imagen"; do
-    case $REPLY in
-        1)
-            echo -e "${azul}📛 Ingresa el nombre de la imagen existente:${neutro}"
-            read -p "📝 Nombre de la imagen: " input_image
-            IMAGE_NAME="${input_image:-gcp}"
-            IMAGE_TAG="1.0"
-            IMAGE_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
-            echo -e "${verde}✔ Imagen existente seleccionada: $IMAGE_NAME${neutro}"
-            break
-            ;;
-        2)
-            while true; do
-                echo -e "${azul}📛 Ingresa un nombre para la nueva imagen Docker (Enter para usar 'gcp'):${neutro}"
-                read -p "📝 Nombre de la imagen: " input_image
-                IMAGE_NAME="${input_image:-gcp}"
-                IMAGE_TAG="1.0"
-                IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
-                IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
+while true; do
+    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
+    read -p "📝 Nombre de la imagen: " input_image
+    IMAGE_NAME="${input_image:-gcp}"
+    IMAGE_TAG="1.0"
+    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
 
-                echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
-                if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
-                    echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-                    echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-                else
-                    echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
-                    break
-                fi
-            done
-            break
-            ;;
-        *)
-            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
-            ;;
-    esac
+    echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+    
+    IMAGE_FULL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
+
+    if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+        echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
+        continue
+    else
+        echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+        break
+    fi
 done
 
 echo -e "${cyan}"
