@@ -165,31 +165,63 @@ while true; do
                     echo -e "${rojo}❌ Selección inválida. Por favor ingrese un número válido.${neutro}"
                   else
                     REPO_REGION=${REGION_CODES[$((REGION_INDEX-1))]}
-echo -e "${verde}✔ Región seleccionada: $REPO_REGION${neutro}"
+echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
 
-# -------------------- BLOQUE SELECCIÓN REGIÓN DESPLIEGUE --------------------
+# 🐳 OPCIONES DE IMAGEN DOCKER (solo si se usa repositorio existente)
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🌍 SELECCIÓN DE REGIÓN DE DESPLIEGUE EN CLOUD RUN"
+echo "🏗️ OPCIONES DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${neutro}"
 
-for i in "${!REGIONS[@]}"; do
-  printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
+PS3=$'\e[33mSeleccione una opción:\e[0m '
+select img_option in "Usar imagen existente" "Crear nueva imagen"; do
+    case $REPLY in
+        1)
+            echo -e "${azul}🔍 Obteniendo lista de imágenes disponibles en el repositorio '${REPO_NAME}'...${neutro}"
+IMAGE_LIST=$(gcloud artifacts docker images list "$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="value(IMAGE)")
+
+if [[ -z "$IMAGE_LIST" ]]; then
+    echo -e "${rojo}❌ No hay imágenes disponibles en este repositorio.${neutro}"
+    exit 1
+fi
+
+PS3=$'\e[33mSeleccione una imagen existente:\e[0m '
+select IMAGE_PATH in $IMAGE_LIST; do
+    if [[ -n "$IMAGE_PATH" ]]; then
+        IMAGE_NAME=$(basename "$IMAGE_PATH")
+        IMAGE_TAG="1.0"  # Puedes cambiar esto si deseas permitir elegir el tag también
+        echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME${neutro}"
+        break
+    else
+        echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
+    fi
 done
+        2)
+            while true; do
+                echo -e "${azul}📛 Ingresa un nombre para la nueva imagen Docker (Enter para usar 'gcp'):${neutro}"
+                read -p "📝 Nombre de la imagen: " input_image
+                IMAGE_NAME="${input_image:-gcp}"
+                IMAGE_TAG="1.0"
+                IMAGE_PATH="$REPO_REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+                IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
 
-while true; do
-  read -p "Ingrese el número de la región de despliegue: " DEPLOY_INDEX
-  if ! [[ "$DEPLOY_INDEX" =~ ^[0-9]+$ ]] || (( DEPLOY_INDEX < 1 || DEPLOY_INDEX > ${#REGION_CODES[@]} )); then
-    echo -e "${rojo}❌ Selección inválida. Intenta nuevamente.${neutro}"
-  else
-    DEPLOY_REGION=${REGION_CODES[$((DEPLOY_INDEX-1))]}
-    echo -e "${verde}✔ Región de despliegue seleccionada: $DEPLOY_REGION${neutro}"
-    break
-  fi
+                echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+                if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+                    echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+                    echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
+                else
+                    echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+                    break
+                fi
+            done
+            break
+            ;;
+        *)
+            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+            ;;
+    esac
 done
-# -------------------- FIN BLOQUE SELECCIÓN REGIÓN DESPLIEGUE --------------------
-
+  
 break
 fi
 done
@@ -343,6 +375,29 @@ echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
 echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
 
+  # -------------------- BLOQUE FINAL SELECCIÓN REGIÓN DESPLIEGUE --------------------
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🌍 SELECCIÓN DE REGIÓN PARA DESPLIEGUE EN CLOUD RUN"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
+
+for i in "${!REGIONS[@]}"; do
+  printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
+done
+
+while true; do
+  read -p "Ingrese el número de la región donde desplegarás el servicio: " DEPLOY_INDEX
+  if ! [[ "$DEPLOY_INDEX" =~ ^[0-9]+$ ]] || (( DEPLOY_INDEX < 1 || DEPLOY_INDEX > ${#REGION_CODES[@]} )); then
+    echo -e "${rojo}❌ Selección inválida. Intenta nuevamente.${neutro}"
+  else
+    DEPLOY_REGION=${REGION_CODES[$((DEPLOY_INDEX-1))]}
+    echo -e "${verde}✔ Región de despliegue seleccionada: $DEPLOY_REGION${neutro}"
+    break
+  fi
+done
+# -------------------- FIN BLOQUE FINAL SELECCIÓN REGIÓN DESPLIEGUE --------------------
+  
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
