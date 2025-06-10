@@ -17,22 +17,26 @@ function construir_servicio() {
     if [[ $? -ne 0 || ! -s build-service-ssh.sh ]]; then
         echo -e "${RED}❌ Error al descargar el script de construcción.${RESET}"
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al descargar el archivo
+        echo
+        return 1
     fi
 
     bash build-service-ssh.sh
-    if [[ $? -ne 0 ]]; then  # Verifica si el script descargado falló
+    if [[ $? -ne 0 ]]; then
         echo -e "${RED}❌ Error al ejecutar el script de construcción.${RESET}"
+        rm -f build-service-ssh.sh
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al ejecutar el script
+        echo
+        return 1
     fi
 
-    rm -f build-service-ssh.sh  # Elimina el archivo descargado
+    rm -f build-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio construido correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
     read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    echo
 }
 
 function editar_servicio() {
@@ -43,22 +47,26 @@ function editar_servicio() {
     if [[ $? -ne 0 || ! -s edit-service-ssh.sh ]]; then
         echo -e "${RED}❌ Error al descargar el script de edición.${RESET}"
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al descargar el archivo
+        echo
+        return 1
     fi
 
     bash edit-service-ssh.sh
-    if [[ $? -ne 0 ]]; then  # Verifica si el script descargado falló
+    if [[ $? -ne 0 ]]; then
         echo -e "${RED}❌ Error al ejecutar el script de edición.${RESET}"
+        rm -f edit-service-ssh.sh
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al ejecutar el script
+        echo
+        return 1
     fi
 
-    rm -f edit-service-ssh.sh  # Elimina el archivo descargado
+    rm -f edit-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio editado correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
     read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    echo
 }
 
 function remover_servicio() {
@@ -69,22 +77,26 @@ function remover_servicio() {
     if [[ $? -ne 0 || ! -s remove-service-ssh.sh ]]; then
         echo -e "${RED}❌ Error al descargar el script de eliminación.${RESET}"
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al descargar el archivo
+        echo
+        return 1
     fi
 
     bash remove-service-ssh.sh
-    if [[ $? -ne 0 ]]; then  # Verifica si el script descargado falló
+    if [[ $? -ne 0 ]]; then
         echo -e "${RED}❌ Error al ejecutar el script de eliminación.${RESET}"
+        rm -f remove-service-ssh.sh
         read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
-        return 1  # Termina la función si hubo un error al ejecutar el script
+        echo
+        return 1
     fi
 
-    rm -f remove-service-ssh.sh  # Elimina el archivo descargado
+    rm -f remove-service-ssh.sh
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}✅ Servicio removido correctamente.${RESET}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
     read -n 1 -s -r -p "${BLUE}🔁 Presione cualquier tecla para volver al menú...${RESET}"
+    echo
 }
 
 function mostrar_menu() {
