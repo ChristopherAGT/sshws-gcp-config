@@ -226,29 +226,47 @@ else
 fi
 
 echo -e "${cyan}"
+echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
+echo "🏗️ OPCIONES DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-while true; do
-    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
-    read -p "📝 Nombre de la imagen: " input_image
-    IMAGE_NAME="${input_image:-gcp}"
-    IMAGE_TAG="1.0"
-    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+PS3=$'\e[33mSeleccione una opción:\e[0m '
+select img_option in "Usar imagen existente" "Crear nueva imagen"; do
+    case $REPLY in
+        1)
+            echo -e "${azul}📛 Ingresa el nombre de la imagen existente:${neutro}"
+            read -p "📝 Nombre de la imagen: " input_image
+            IMAGE_NAME="${input_image:-gcp}"
+            IMAGE_TAG="1.0"
+            IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+            echo -e "${verde}✔ Imagen existente seleccionada: $IMAGE_NAME${neutro}"
+            break
+            ;;
+        2)
+            while true; do
+                echo -e "${azul}📛 Ingresa un nombre para la nueva imagen Docker (Enter para usar 'gcp'):${neutro}"
+                read -p "📝 Nombre de la imagen: " input_image
+                IMAGE_NAME="${input_image:-gcp}"
+                IMAGE_TAG="1.0"
+                IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+                IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
 
-    echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
-    
-    IMAGE_FULL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
-
-    if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
-        echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-        continue
-    else
-        echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
-        break
-    fi
+                echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+                if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+                    echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+                    echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
+                else
+                    echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+                    break
+                fi
+            done
+            break
+            ;;
+        *)
+            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+            ;;
+    esac
 done
 
 echo -e "${cyan}"
