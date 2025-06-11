@@ -178,7 +178,7 @@ else
     echo -e "${verde}🔐 Docker ya autenticado. Omitiendo configuración.${neutro}"
 fi
           
-          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🖼️ OPCIÓN DE IMAGEN EXISTENTE O NUEVA
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo -e "${cyan}"
@@ -191,18 +191,17 @@ PS3=$'\e[33mSeleccione una opción:\e[0m '
 select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
     case $REPLY in
         1)
-            echo -e "${azul}🔍 Buscando imágenes en todas las regiones...${neutro}"
-            IMAGENES_EXISTENTES=()
+            echo -e "${azul}🔍 Buscando imágenes en el repositorio '${REPO_NAME}' en la región '${REGION}'...${neutro}"
 
-            for region in "${REGION_CODES[@]}"; do
-                resultados=$(gcloud artifacts docker images list "$region-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="value(package)" 2>/dev/null)
-                while read -r imagen; do
-                    [[ -n "$imagen" ]] && IMAGENES_EXISTENTES+=("$region|$imagen")
-                done <<< "$resultados"
-            done
+            FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
 
-            if [[ ${#IMAGENES_EXISTENTES[@]} -eq 0 ]]; then
-                echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '$REPO_NAME'.${neutro}"
+            mapfile -t IMAGENES_UNICAS < <(
+                gcloud artifacts docker images list "$FULL_REPO_PATH" \
+                --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
+            )
+
+            if [[ ${#IMAGENES_UNICAS[@]} -eq 0 ]]; then
+                echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '${REPO_NAME}'.${neutro}"
                 echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
                 imagen_opcion="Crear nueva imagen"
                 break
@@ -214,14 +213,21 @@ select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo -e "${neutro}"
 
+            OPCIONES=()
+            for entry in "${IMAGENES_UNICAS[@]}"; do
+                IFS=' ' read -r package digest <<< "$entry"
+                imagen_name=$(basename "$package")
+                OPCIONES+=("${imagen_name}@${digest}")
+            done
+
             PS3=$'\e[33mSeleccione una imagen:\e[0m '
-            select img in "${IMAGENES_EXISTENTES[@]}"; do
-                if [[ -n "$img" ]]; then
-                    REGION=$(cut -d'|' -f1 <<< "$img")
-                    IMAGE_NAME=$(cut -d'/' -f4 <<< "$(cut -d'|' -f2 <<< "$img")")
+            select opcion in "${OPCIONES[@]}"; do
+                if [[ -n "$opcion" ]]; then
+                    IMAGE_NAME="${opcion%@*}"
+                    DIGEST="${opcion#*@}"
                     IMAGE_TAG="1.0"
-                    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
-                    echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Región: $REGION)${neutro}"
+                    IMAGE_PATH="$FULL_REPO_PATH/$IMAGE_NAME"
+                    echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Digest: ${DIGEST:0:12})${neutro}"
                     break 2
                 else
                     echo -e "${rojo}❌ Selección inválida. Intente de nuevo.${neutro}"
@@ -240,32 +246,31 @@ done
 
 #Se omite si se elige usar imagen existente
 if [[ "$imagen_opcion" == "Crear nueva imagen" ]]; then
-                  
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${cyan}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-while true; do
-    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
-    read -p "📝 Nombre de la imagen: " input_image
-    IMAGE_NAME="${input_image:-gcp}"
-    IMAGE_TAG="1.0"
-    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+    while true; do
+        echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
+        read -p "📝 Nombre de la imagen: " input_image
+        IMAGE_NAME="${input_image:-gcp}"
+        IMAGE_TAG="1.0"
+        IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+        IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
 
-    echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
-    
-    IMAGE_FULL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
+        echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
 
-    if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
-        echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-        continue
-    else
-        echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
-        break
-    fi
-done
+        if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+            echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+            echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
+            continue
+        else
+            echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
+            break
+        fi
+    done
+fi
 
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
