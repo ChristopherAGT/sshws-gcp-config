@@ -27,25 +27,41 @@ while true; do
     select opcion in "Usar existente" "Crear nuevo"; do
         case $REPLY in
             1)
-                echo -e "${azul}🔍 Buscando repositorios disponibles en $REGION...${neutro}"
-                REPO_LIST=$(gcloud artifacts repositories list --location="$REGION" --format="value(name)")
-                if [[ -z "$REPO_LIST" ]]; then
-                    echo -e "${rojo}❌ No hay repositorios disponibles en $REGION. Se creará uno nuevo.${neutro}"
-                    opcion="Crear nuevo"
-                    break 2
-                else
-                    PS3=$'\e[33mSeleccione un repositorio:\e[0m '
-                    select repo in $REPO_LIST; do
-                        if [[ -n "$repo" ]]; then
-                            REPO_NAME=$(basename "$repo")
-                            echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME${neutro}"
-                            break 3
-                        else
-                            echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
-                        fi
-                    done
-                fi
-                ;;
+    echo -e "${azul}🔍 Buscando repositorios disponibles en todas las regiones...${neutro}"
+
+    REPOSITORIOS_ENCONTRADOS=()
+
+    for region in "${REGION_CODES[@]}"; do
+        repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
+        while read -r repo; do
+            [[ -n "$repo" ]] && REPOSITORIOS_ENCONTRADOS+=("$region|$repo")
+        done <<< "$repos"
+    done
+
+    if [[ ${#REPOSITORIOS_ENCONTRADOS[@]} -eq 0 ]]; then
+        echo -e "${rojo}❌ No hay repositorios disponibles en ninguna región. Se creará uno nuevo.${neutro}"
+        opcion="Crear nuevo"
+        break 2
+    else
+        echo -e "${cyan}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📁 Repositorios encontrados en todas las regiones:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${neutro}"
+
+        PS3=$'\e[33mSeleccione un repositorio:\e[0m '
+        select repo in "${REPOSITORIOS_ENCONTRADOS[@]}"; do
+            if [[ -n "$repo" ]]; then
+                REGION=$(cut -d'|' -f1 <<< "$repo")
+                REPO_NAME=$(basename "$(cut -d'|' -f2 <<< "$repo")")
+                echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME (Región: $REGION)${neutro}"
+                break 3
+            else
+                echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
+            fi
+        done
+    fi
+    ;;
             2)
                 echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
                 read -p "📝 Nombre del repositorio: " input_repo
@@ -224,7 +240,70 @@ if ! grep -q "$REGION-docker.pkg.dev" ~/.docker/config.json 2>/dev/null; then
 else
     echo -e "${verde}🔐 Docker ya autenticado. Omitiendo configuración.${neutro}"
 fi
+          
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🖼️ OPCIÓN DE IMAGEN EXISTENTE O NUEVA
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🖼️ OPCIÓN DE IMAGEN DOCKER"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
 
+PS3=$'\e[33mSeleccione una opción:\e[0m '
+select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
+    case $REPLY in
+        1)
+            echo -e "${azul}🔍 Buscando imágenes en todas las regiones...${neutro}"
+            IMAGENES_EXISTENTES=()
+
+            for region in "${REGION_CODES[@]}"; do
+                resultados=$(gcloud artifacts docker images list "$region-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="value(package)" 2>/dev/null)
+                while read -r imagen; do
+                    [[ -n "$imagen" ]] && IMAGENES_EXISTENTES+=("$region|$imagen")
+                done <<< "$resultados"
+            done
+
+            if [[ ${#IMAGENES_EXISTENTES[@]} -eq 0 ]]; then
+                echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '$REPO_NAME'.${neutro}"
+                echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
+                imagen_opcion="Crear nueva imagen"
+                break
+            fi
+
+            echo -e "${cyan}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📂 Seleccione una imagen existente:"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo -e "${neutro}"
+
+            PS3=$'\e[33mSeleccione una imagen:\e[0m '
+            select img in "${IMAGENES_EXISTENTES[@]}"; do
+                if [[ -n "$img" ]]; then
+                    REGION=$(cut -d'|' -f1 <<< "$img")
+                    IMAGE_NAME=$(cut -d'/' -f4 <<< "$(cut -d'|' -f2 <<< "$img")")
+                    IMAGE_TAG="1.0"
+                    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+                    echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Región: $REGION)${neutro}"
+                    break 2
+                else
+                    echo -e "${rojo}❌ Selección inválida. Intente de nuevo.${neutro}"
+                fi
+            done
+            ;;
+        2)
+            imagen_opcion="Crear nueva imagen"
+            break
+            ;;
+        *)
+            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+            ;;
+    esac
+done
+
+#Se omite si se elige usar imagen existente
+if [[ "$imagen_opcion" == "Crear nueva imagen" ]]; then
+                  
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
@@ -299,7 +378,9 @@ echo "╔═══════════════════════�
 echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
 echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
 echo "╚════════════════════════════════════════════════════════════╝"
-
+                  
+fi
+                  
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
