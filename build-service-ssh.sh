@@ -1,199 +1,136 @@
 #!/bin/bash
 
-# ╔════════════════════════════════════════════════════════╗
-# ║      🚀 CREAR REPOSITORIO + CONSTRUIR Y SUBIR IMAGEN             ║
-# ║                  ARTIFACT REGISTRY - GCP                         ║
-# ╚════════════════════════════════════════════════════════╝
+# Colores
+neutro='\033[0m'
+rojo='\033[0;31m'
+verde='\033[0;32m'
+cyan='\033[0;36m'
+amarillo='\033[1;33m'
 
-# Colores 🎨
-verde="\e[1;32m"
-rojo="\e[1;31m"
-azul="\e[1;34m"
-amarillo="\e[1;33m"
-cyan="\e[1;36m"
-neutro="\e[0m"
+# Definición de regiones (41)
+declare -a REGIONS=(
+  "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
+  "🇺🇸 us-west3 (Salt Lake City)" "🇺🇸 us-west4 (Las Vegas)" "🇺🇸 us-east1 (Carolina del Sur)"
+  "🇺🇸 us-east4 (Virginia del Norte)" "🇨🇦 northamerica-northeast1 (Montreal)" "🇨🇦 northamerica-northeast2 (Toronto)"
+  "🇧🇷 southamerica-east1 (São Paulo)" "🇨🇱 southamerica-west1 (Santiago)"
+  "🇪🇺 europe-north1 (Finlandia)" "🇪🇺 europe-west1 (Bélgica)" "🇪🇺 europe-west2 (Londres)"
+  "🇪🇺 europe-west3 (Fráncfort)" "🇪🇺 europe-west4 (Países Bajos)" "🇪🇺 europe-west6 (Zúrich)"
+  "🇪🇸 europe-southwest1 (Madrid)" "🇮🇹 europe-southwest2 (Milán)" "🇫🇷 europe-west9 (París)"
+  "🇸🇪 europe-central2 (Varsovia)" "🇦🇺 australia-southeast1 (Sídney)" "🇦🇺 australia-southeast2 (Melbourne)"
+  "🇮🇳 asia-south1 (Mumbai)" "🇮🇳 asia-south2 (Delhi)" "🇯🇵 asia-northeast1 (Tokio)"
+  "🇯🇵 asia-northeast2 (Osaka)" "🇯🇵 asia-northeast3 (Sendai)" "🇸🇬 asia-southeast1 (Singapur)"
+  "🇮🇩 asia-southeast2 (Yakarta)" "🇹🇭 asia-southeast3 (Bangkok)" "🇰🇷 asia-east1 (Taiwán)"
+  "🇰🇷 asia-east2 (Hong Kong)" "🇸🇦 me-central1 (Dammam)" "🇶🇦 me-west1 (Doha)"
+  "🇿🇦 africa-south1 (Johannesburgo)" "🇦🇪 me-central2 (E.A.U.)" "🇰🇪 africa-east1 (Nairobi)"
+  "🇩🇪 europe-central2 (Berlín)" "🇫🇷 europe-west10 (Marsella)" "🇺🇸 us-east5 (Columbus)"
+)
 
-# 🔧 Región por defecto (se sobrescribirá con selección)
-REGION="us-east1"  # Carolina del Sur
+declare -a REGION_CODES=(
+  "us-central1" "us-west1" "us-west2" "us-west3" "us-west4" "us-east1" "us-east4"
+  "northamerica-northeast1" "northamerica-northeast2" "southamerica-east1" "southamerica-west1"
+  "europe-north1" "europe-west1" "europe-west2" "europe-west3" "europe-west4" "europe-west6"
+  "europe-southwest1" "europe-southwest2" "europe-west9" "europe-central2"
+  "australia-southeast1" "australia-southeast2"
+  "asia-south1" "asia-south2" "asia-northeast1" "asia-northeast2" "asia-northeast3"
+  "asia-southeast1" "asia-southeast2" "asia-southeast3"
+  "asia-east1" "asia-east2"
+  "me-central1" "me-west1" "africa-south1" "me-central2" "africa-east1"
+  "europe-central2" "europe-west10" "us-east5"
+)
 
 echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📦 SELECCIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
 
-while true; do
-    echo -e "${neutro}"
-    PS3=$'\e[33mSeleccione una opción:\e[0m '
-    select opcion in "Usar existente" "Crear nuevo"; do
-        case $REPLY in
-            1)
-    echo -e "${azul}🔍 Buscando repositorios disponibles en todas las regiones...${neutro}"
+PS3="Selecciona una opción: "
+select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
+  case $REPLY in
+    1)
+      echo -e "${cyan}"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "📍 SELECCIÓN DE REGIÓN PARA EL NUEVO REPOSITORIO"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo -e "${neutro}"
 
-    REPOSITORIOS_ENCONTRADOS=()
+      PS3="Elige la región para el nuevo repositorio: "
+      select region in "${REGIONS[@]}"; do
+        REGION="${REGION_CODES[$REPLY-1]}"
+        echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
+        break
+      done
 
-    for region in "${REGION_CODES[@]}"; do
+      echo
+      read -p "📝 Ingresa el nombre del nuevo repositorio: " REPO_NAME
+
+      if [[ -z "$REPO_NAME" ]]; then
+        echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío.${neutro}"
+        exit 1
+      fi
+
+      echo -e "${cyan}"
+      echo "🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"..."
+      echo -e "${neutro}"
+
+      gcloud artifacts repositories create "$REPO_NAME" \
+        --repository-format=docker \
+        --location="$REGION" \
+        --description="Repositorio Docker creado por script"
+
+      echo -e "${verde}✅ Repositorio creado exitosamente.${neutro}"
+      break
+      ;;
+    2)
+      echo -e "${cyan}"
+      echo "🔍 Buscando repositorios existentes en todas las regiones..."
+      echo -e "${neutro}"
+
+      declare -a REPO_LIST=()
+      declare -a REPO_REGIONS=()
+
+      for region in "${REGION_CODES[@]}"; do
         repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
         while read -r repo; do
-            [[ -n "$repo" ]] && REPOSITORIOS_ENCONTRADOS+=("$region|$repo")
+          if [[ -n "$repo" ]]; then
+            REPO_LIST+=("$repo")
+            REPO_REGIONS+=("$region")
+          fi
         done <<< "$repos"
-    done
+      done
 
-    if [[ ${#REPOSITORIOS_ENCONTRADOS[@]} -eq 0 ]]; then
-        echo -e "${rojo}❌ No hay repositorios disponibles en ninguna región. Se creará uno nuevo.${neutro}"
-        opcion="Crear nuevo"
-        break 2
-    else
-        echo -e "${cyan}"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📁 Repositorios encontrados en todas las regiones:"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${neutro}"
+      if [[ ${#REPO_LIST[@]} -eq 0 ]]; then
+        echo -e "${rojo}❌ No se encontraron repositorios disponibles.${neutro}"
+        exit 1
+      fi
 
-        PS3=$'\e[33mSeleccione un repositorio:\e[0m '
-        select repo in "${REPOSITORIOS_ENCONTRADOS[@]}"; do
-            if [[ -n "$repo" ]]; then
-                REGION=$(cut -d'|' -f1 <<< "$repo")
-                REPO_NAME=$(basename "$(cut -d'|' -f2 <<< "$repo")")
-                echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME (Región: $REGION)${neutro}"
-                break 3
-            else
-                echo -e "${rojo}❌ Selección no válida. Intenta nuevamente.${neutro}"
-            fi
-        done
-    fi
-    ;;
-            2)
-                echo -e "${azul}📛 Ingresa un nombre para el nuevo repositorio (Enter para usar 'google-cloud'):${neutro}"
-                read -p "📝 Nombre del repositorio: " input_repo
-                REPO_NAME="${input_repo:-google-cloud}"
-                echo -e "${verde}✔ Repositorio a crear/usar: $REPO_NAME${neutro}"
-
-                # -------------------- BLOQUE DE SELECCIÓN DE REGIÓN --------------------
-                echo -e "${cyan}"
-                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "🌍 SELECCIÓN DE REGIÓN DE DESPLIEGUE"
-                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo -e "${neutro}"
-
-                declare -a REGIONS=(
-                  "🇿🇦 africa-south1 (Johannesburgo)"
-                  "🇨🇦 northamerica-northeast1 (Montreal)"
-                  "🇨🇦 northamerica-northeast2 (Toronto)"
-                  "🇲🇽 northamerica-south1 (México)"
-                  "🇧🇷 southamerica-east1 (São Paulo)"
-                  "🇨🇱 southamerica-west1 (Santiago)"
-                  "🇺🇸 us-central1 (Iowa)"
-                  "🇺🇸 us-east1 (Carolina del Sur)"
-                  "🇺🇸 us-east4 (Virginia del Norte)"
-                  "🇺🇸 us-east5 (Columbus)"
-                  "🇺🇸 us-south1 (Dallas)"
-                  "🇺🇸 us-west1 (Oregón)"
-                  "🇺🇸 us-west2 (Los Ángeles)"
-                  "🇺🇸 us-west3 (Salt Lake City)"
-                  "🇺🇸 us-west4 (Las Vegas)"
-                  "🇹🇼 asia-east1 (Taiwán)"
-                  "🇭🇰 asia-east2 (Hong Kong)"
-                  "🇯🇵 asia-northeast1 (Tokio)"
-                  "🇯🇵 asia-northeast2 (Osaka)"
-                  "🇰🇷 asia-northeast3 (Seúl)"
-                  "🇮🇳 asia-south1 (Bombay)"
-                  "🇮🇳 asia-south2 (Delhi)"
-                  "🇸🇬 asia-southeast1 (Singapur)"
-                  "🇮🇩 asia-southeast2 (Yakarta)"
-                  "🇦🇺 australia-southeast1 (Sídney)"
-                  "🇦🇺 australia-southeast2 (Melbourne)"
-                  "🇵🇱 europe-central2 (Varsovia)"
-                  "🇫🇮 europe-north1 (Finlandia)"
-                  "🇸🇪 europe-north2 (Estocolmo)"
-                  "🇪🇸 europe-southwest1 (Madrid)"
-                  "🇧🇪 europe-west1 (Bélgica)"
-                  "🇬🇧 europe-west2 (Londres)"
-                  "🇩🇪 europe-west3 (Fráncfort)"
-                  "🇳🇱 europe-west4 (Netherlands)"
-                  "🇨🇭 europe-west6 (Zúrich)"
-                  "🇮🇹 europe-west8 (Milán)"
-                  "🇫🇷 europe-west9 (París)"
-                  "🇩🇪 europe-west10 (Berlín)"
-                  "🇮🇹 europe-west12 (Turín)"
-                  "🇶🇦 me-central1 (Doha)"
-                  "🇸🇦 me-central2 (Dammam)"
-                  "🇮🇱 me-west1 (Tel Aviv)"
-                )
-                declare -a REGION_CODES=(
-                  "africa-south1"
-                  "northamerica-northeast1"
-                  "northamerica-northeast2"
-                  "northamerica-south1"
-                  "southamerica-east1"
-                  "southamerica-west1"
-                  "us-central1"
-                  "us-east1"
-                  "us-east4"
-                  "us-east5"
-                  "us-south1"
-                  "us-west1"
-                  "us-west2"
-                  "us-west3"
-                  "us-west4"
-                  "asia-east1"
-                  "asia-east2"
-                  "asia-northeast1"
-                  "asia-northeast2"
-                  "asia-northeast3"
-                  "asia-south1"
-                  "asia-south2"
-                  "asia-southeast1"
-                  "asia-southeast2"
-                  "australia-southeast1"
-                  "australia-southeast2"
-                  "europe-central2"
-                  "europe-north1"
-                  "europe-north2"
-                  "europe-southwest1"
-                  "europe-west1"
-                  "europe-west2"
-                  "europe-west3"
-                  "europe-west4"
-                  "europe-west6"
-                  "europe-west8"
-                  "europe-west9"
-                  "europe-west10"
-                  "europe-west12"
-                  "me-central1"
-                  "me-central2"
-                  "me-west1"
-                )
-
-                for i in "${!REGIONS[@]}"; do
-                  printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
-                done
-
-                while true; do
-                  read -p "Ingrese el número de la región deseada: " REGION_INDEX
-                  
-                  if ! [[ "$REGION_INDEX" =~ ^[0-9]+$ ]] || (( REGION_INDEX < 1 || REGION_INDEX > ${#REGION_CODES[@]} )); then
-                    echo -e "${rojo}"
-                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                    echo "❌ SELECCIÓN DE REGIÓN INVÁLIDA"
-                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                    echo -e "${neutro}"
-                    echo -e "${rojo}❌ Selección inválida. Por favor ingrese un número válido.${neutro}"
-                  else
-                    REGION=${REGION_CODES[$((REGION_INDEX-1))]}
-                    echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
-                    break
-                  fi
-                done
-                # -------------------- FIN BLOQUE SELECCIÓN DE REGIÓN --------------------
-
-                break 2
-                ;;
-            *)
-                echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
-                break
-                ;;
-        esac
-    done
+      echo -e "${cyan}"
+      echo "📂 Repositorios encontrados:"
+      echo -e "${neutro}"
+      PS3="Selecciona el repositorio que deseas usar: "
+      select repo in "${REPO_LIST[@]}" "Cancelar"; do
+        if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
+          REPO_NAME=$(basename "$repo")
+          REGION="${REPO_REGIONS[$REPLY-1]}"
+          echo -e "${verde}✔ Repositorio seleccionado: $REPO_NAME (Región: $REGION)${neutro}"
+          break
+        elif [[ "$REPLY" -eq $((${#REPO_LIST[@]}+1)) ]]; then
+          echo -e "${amarillo}⚠️  Cancelado por el usuario.${neutro}"
+          exit 0
+        else
+          echo -e "${rojo}❌ Selección inválida.${neutro}"
+        fi
+      done
+      break
+      ;;
+    3)
+      echo -e "${amarillo}⚠️  Cancelado por el usuario.${neutro}"
+      exit 0
+      ;;
+    *)
+      echo -e "${rojo}❌ Opción inválida. Intenta nuevamente.${neutro}"
+      ;;
+  esac
 done
 
 echo -e "${cyan}"
