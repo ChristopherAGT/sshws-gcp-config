@@ -382,11 +382,35 @@ echo "╚═══════════════════════�
 fi
                   
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
+# 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🌐 DESPLEGANDO SERVICIO EN CLOUD RUN"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
+
+# 🌍 SELECCIÓN DE REGIÓN PARA CLOUD RUN
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🌍 SELECCIÓN DE REGIÓN PARA DESPLEGAR CLOUD RUN"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
+
+for i in "${!REGIONS[@]}"; do
+  printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
+done
+
+while true; do
+  read -p "Ingrese el número de la región para el servicio: " CLOUD_RUN_INDEX
+
+  if ! [[ "$CLOUD_RUN_INDEX" =~ ^[0-9]+$ ]] || (( CLOUD_RUN_INDEX < 1 || CLOUD_RUN_INDEX > ${#REGION_CODES[@]} )); then
+    echo -e "${rojo}❌ Selección inválida. Intente nuevamente.${neutro}"
+  else
+    CLOUD_RUN_REGION=${REGION_CODES[$((CLOUD_RUN_INDEX-1))]}
+    echo -e "${verde}✔ Región seleccionada para Cloud Run: $CLOUD_RUN_REGION${neutro}"
+    break
+  fi
+done
 
 # Solicitar al usuario el nombre del servicio (default: rain)
 read -p "📛 Ingresa el nombre que deseas para el servicio en Cloud Run (default: rain): " SERVICE_NAME
@@ -405,10 +429,10 @@ while true; do
     fi
 
     echo -e "${verde}✅ Se ingresó el subdominio: $DHOST${neutro}"
-    echo    # 🟦 Línea en blanco para separación visual
+    echo
     echo -ne "${cyan}¿Desea continuar con este subdominio? (s/n): ${neutro}"
     read -r CONFIRMAR
-    CONFIRMAR=${CONFIRMAR,,}  # Convertir a minúscula
+    CONFIRMAR=${CONFIRMAR,,}
 
     if [[ "$CONFIRMAR" == "s" ]]; then
         break
@@ -417,14 +441,14 @@ while true; do
     fi
 done
 
-# Obtener número de proyecto (por si lo necesitas después)
+# Obtener número de proyecto
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
-# Ejecutar despliegue
+# Ejecutar despliegue en la región seleccionada
 SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
   --image "$IMAGE_PATH:$IMAGE_TAG" \
   --platform managed \
-  --region "$REGION" \
+  --region "$CLOUD_RUN_REGION" \
   --allow-unauthenticated \
   --port 8080 \
   --timeout 3600 \
@@ -440,7 +464,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Dominio regional del servicio
-REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
+REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${CLOUD_RUN_REGION}.run.app"
 
 # Mostrar resumen final
 echo -e "${verde}"
@@ -450,9 +474,10 @@ echo "╠═══════════════════════�
 echo "║ 🗂️ ID del Proyecto GCP  : $PROJECT_ID"
 echo "║ 🔢 Número de Proyecto   : $PROJECT_NUMBER"
 echo "║ 🗃️ Repositorio Docker   : $REPO_NAME"
+echo "║ 📍 Región de Despliegue : $REGION"
 echo "║ 🖼️ Nombre de la Imagen  : $IMAGE_NAME:$IMAGE_TAG"
 echo "║ 📛 Nombre del Servicio  : $SERVICE_NAME"
-echo "║ 📍 Región de Despliegue : $REGION"
+echo "║ 📍 Región de Despliegue : $CLOUD_RUN_REGION"
 echo "║ 🌐 URL del Servicio     : $SERVICE_URL"
 echo "║ 🌐 Dominio Regional     : $REGIONAL_DOMAIN"
 echo "╚════════════════════════════════════════════════════════════╝"
