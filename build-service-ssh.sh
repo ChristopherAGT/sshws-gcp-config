@@ -221,18 +221,20 @@ select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
             done
 
             PS3=$'\e[33mSeleccione una imagen:\e[0m '
-            select opcion in "${OPCIONES[@]}"; do
-                if [[ -n "$opcion" ]]; then
-                    IMAGE_NAME="${opcion%@*}"
-                    DIGEST="${opcion#*@}"
-                    IMAGE_TAG="1.0"
-                    IMAGE_PATH="$FULL_REPO_PATH/$IMAGE_NAME"
-                    echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Digest: ${DIGEST:0:12})${neutro}"
-                    break 2
-                else
-                    echo -e "${rojo}❌ Selección inválida. Intente de nuevo.${neutro}"
-                fi
-            done
+select opcion in "${OPCIONES[@]}"; do
+    if [[ -n "$opcion" ]]; then
+        IMAGE_NAME="${opcion%@*}"
+        IMAGE_NAME=$(echo "$IMAGE_NAME" | tr -d '[:space:]')
+        DIGEST="${opcion#*@}"
+        IMAGE_TAG="1.0"
+        IMAGE_PATH="$FULL_REPO_PATH/$IMAGE_NAME"
+        imagen_opcion="Usar imagen existente"  # ✅ LÍNEA NECESARIA
+        echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Digest: ${DIGEST:0:12})${neutro}"
+        break 2
+    else
+        echo -e "${rojo}❌ Selección inválida. Intente de nuevo.${neutro}"
+    fi
+done
             ;;
         2)
             imagen_opcion="Crear nueva imagen"
@@ -244,7 +246,7 @@ select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
     esac
 done
 
-#Se omite si se elige usar imagen existente
+# 🔁 Solo se ejecuta si se eligió crear una nueva imagen
 if [[ "$imagen_opcion" == "Crear nueva imagen" ]]; then
     echo -e "${cyan}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -270,60 +272,57 @@ if [[ "$imagen_opcion" == "Crear nueva imagen" ]]; then
             break
         fi
     done
-fi
 
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📥 CLONANDO REPOSITORIO"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${cyan}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📥 CLONANDO REPOSITORIO"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if [[ -d "sshws-gcp" ]]; then
-    echo -e "${amarillo}🧹 Eliminando versión previa del directorio sshws-gcp...${neutro}"
+    if [[ -d "sshws-gcp" ]]; then
+        echo -e "${amarillo}🧹 Eliminando versión previa del directorio sshws-gcp...${neutro}"
+        rm -rf sshws-gcp
+    fi
+
+    git clone https://gitlab.com/PANCHO7532/sshws-gcp || {
+        echo -e "${rojo}❌ Error al clonar el repositorio.${neutro}"
+        exit 1
+    }
+
+    cd sshws-gcp || {
+        echo -e "${rojo}❌ No se pudo acceder al directorio sshws-gcp.${neutro}"
+        exit 1
+    }
+
+    echo -e "${cyan}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🐳 CONSTRUYENDO IMAGEN DOCKER"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    docker build -t "$IMAGE_PATH:$IMAGE_TAG" .
+
+    [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al construir la imagen.${neutro}" && exit 1
+
+    echo -e "${cyan}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📤 SUBIENDO IMAGEN A ARTIFACT REGISTRY"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    docker push "$IMAGE_PATH:$IMAGE_TAG"
+
+    [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al subir la imagen.${neutro}" && exit 1
+
+    echo -e "${cyan}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🧹 LIMPIANDO DIRECTORIO TEMPORAL"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    cd ..
     rm -rf sshws-gcp
+
+    echo -e "${amarillo}"
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
+    echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
+    echo "╚════════════════════════════════════════════════════════════╝"
 fi
-
-git clone https://gitlab.com/PANCHO7532/sshws-gcp || {
-    echo -e "${rojo}❌ Error al clonar el repositorio.${neutro}"
-    exit 1
-}
-
-cd sshws-gcp || {
-    echo -e "${rojo}❌ No se pudo acceder al directorio sshws-gcp.${neutro}"
-    exit 1
-}
-
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🐳 CONSTRUYENDO IMAGEN DOCKER"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-docker build -t "$IMAGE_PATH:$IMAGE_TAG" .
-
-[[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al construir la imagen.${neutro}" && exit 1
-
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📤 SUBIENDO IMAGEN A ARTIFACT REGISTRY"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-docker push "$IMAGE_PATH:$IMAGE_TAG"
-
-[[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al subir la imagen.${neutro}" && exit 1
-
-echo -e "${cyan}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🧹 LIMPIANDO DIRECTORIO TEMPORAL"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-cd ..
-rm -rf sshws-gcp
-
-echo -e "${amarillo}"
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║ ✅ Imagen '$IMAGE_NAME:$IMAGE_TAG' subida exitosamente.       ║"
-echo "║ 📍 Ruta: $IMAGE_PATH:$IMAGE_TAG"
-echo "╚════════════════════════════════════════════════════════════╝"
-                  
-fi
-                  
-# 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
+  
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
