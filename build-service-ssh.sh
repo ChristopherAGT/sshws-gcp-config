@@ -104,10 +104,10 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
         exit 1
       fi
 
-      echo -e "${cyan}"
+      echo -e "${verde}"
       echo "📂 Repositorios encontrados:"
       echo -e "${neutro}"
-      PS3="Selecciona el repositorio que deseas usar: "
+      PS3=$(echo -e "${amarillo}Selecciona el repositorio que deseas usar: }")
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
