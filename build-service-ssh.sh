@@ -59,7 +59,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="Selecciona una opción: "
+PS3=$(echo -e "${amarillo}Selecciona una opción: ${neutro}")
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
