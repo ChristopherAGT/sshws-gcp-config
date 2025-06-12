@@ -7,6 +7,21 @@ verde='\033[0;32m'
 cyan='\033[0;36m'
 amarillo='\033[1;33m'
 
+# Spinner visual
+spinner() {
+    local pid=$!
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    wait $pid
+}
+
 # Definición de regiones (41)
 declare -a REGIONS=(
   "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
@@ -83,21 +98,27 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       ;;
     2)
       echo -e "${cyan}"
-      echo "🔍 Buscando repositorios existentes en todas las regiones..."
-      echo -e "${neutro}"
+echo "🔍 Buscando repositorios existentes en todas las regiones..."
+echo -e "${neutro}"
 
-      declare -a REPO_LIST=()
-      declare -a REPO_REGIONS=()
+echo -ne "${amarillo}⏳ Buscando repositorios en todas las regiones...${neutro}"
 
-      for region in "${REGION_CODES[@]}"; do
-        repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
-        while read -r repo; do
-          if [[ -n "$repo" ]]; then
+declare -a REPO_LIST=()
+declare -a REPO_REGIONS=()
+
+(
+for region in "${REGION_CODES[@]}"; do
+    repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
+    while read -r repo; do
+        if [[ -n "$repo" ]]; then
             REPO_LIST+=("$repo")
             REPO_REGIONS+=("$region")
-          fi
-        done <<< "$repos"
-      done
+        fi
+    done <<< "$repos"
+done
+) & spinner
+
+echo -e "${verde} ✔️ Repositorios encontrados.${neutro}"
 
       if [[ ${#REPO_LIST[@]} -eq 0 ]]; then
         echo -e "${rojo}❌ No se encontraron repositorios disponibles.${neutro}"
@@ -191,21 +212,25 @@ PS3=$'\e[33mSeleccione una opción:\e[0m '
 select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
     case $REPLY in
         1)
-            echo -e "${azul}🔍 Buscando imágenes en el repositorio '${REPO_NAME}' en la región '${REGION}'...${neutro}"
+    echo -ne "${amarillo}⏳ Buscando imágenes en el repositorio '${REPO_NAME}' en la región '${REGION}'...${neutro}"
 
-            FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
+    FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
 
-            mapfile -t IMAGENES_UNICAS < <(
-                gcloud artifacts docker images list "$FULL_REPO_PATH" \
-                --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
-            )
+    (
+    mapfile -t IMAGENES_UNICAS < <(
+        gcloud artifacts docker images list "$FULL_REPO_PATH" \
+        --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
+    )
+    ) & spinner
 
-            if [[ ${#IMAGENES_UNICAS[@]} -eq 0 ]]; then
-                echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '${REPO_NAME}'.${neutro}"
-                echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
-                imagen_opcion="Crear nueva imagen"
-                break
-            fi
+    echo -e "${verde} ✔️ Imágenes encontradas.${neutro}"
+
+    if [[ ${#IMAGENES_UNICAS[@]} -eq 0 ]]; then
+        echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '${REPO_NAME}'.${neutro}"
+        echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
+        imagen_opcion="Crear nueva imagen"
+        break
+    fi
 
             echo -e "${cyan}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
