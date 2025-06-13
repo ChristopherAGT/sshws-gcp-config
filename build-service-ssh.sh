@@ -7,18 +7,26 @@ verde='\033[0;32m'
 cyan='\033[0;36m'
 amarillo='\033[1;33m'
 
+# 📁 Directorio temporal para almacenamiento intermedio
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT  # 🔐 Limpieza automática al salir
+
 # 🎡 Spinner de carga
 spinner() {
-  local pid=$!
+  local pid=$1
+  local mensaje="$2"
   local delay=0.1
   local spinstr='|/-\'
-  while kill -0 $pid 2>/dev/null; do
+
+  echo -ne "${cyan}${mensaje} "
+  while kill -0 "$pid" 2>/dev/null; do
     local temp=${spinstr#?}
     printf " [%c]  " "$spinstr"
     spinstr=$temp${spinstr%"$temp"}
     sleep $delay
     printf "\b\b\b\b\b\b"
   done
+  echo -e " ${verde}✔ Completado${neutro}"
 }
 
 # Definición de regiones (41)
@@ -100,20 +108,29 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       echo "🔍 Buscando repositorios existentes en todas las regiones..."
       echo -e "${neutro}"
 
-      declare -a REPO_LIST=()
-      declare -a REPO_REGIONS=()
+      REPO_LIST=()
+      REPO_REGIONS=()
 
-      (
-  for region in "${REGION_CODES[@]}"; do
+# 🔍 Buscar repositorios en paralelo y guardar resultados por archivo
+for region in "${REGION_CODES[@]}"; do
+  {
     repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
     while read -r repo; do
-      if [[ -n "$repo" ]]; then
-        REPO_LIST+=("$repo")
-        REPO_REGIONS+=("$region")
-      fi
+      [[ -n "$repo" ]] && echo "$region|$repo"
     done <<< "$repos"
-  done
-) & spinner
+  } > "$TEMP_DIR/$region.txt" &
+done
+
+spinner $$ "🔍 Buscando repositorios en todas las regiones..."
+wait
+
+# 📥 Leer resultados desde archivos temporales
+for file in "$TEMP_DIR"/*.txt; do
+  while IFS='|' read -r region repo; do
+    REPO_LIST+=("$repo")
+    REPO_REGIONS+=("$region")
+  done < "$file"
+done
 
       if [[ ${#REPO_LIST[@]} -eq 0 ]]; then
         echo -e "${rojo}❌ No se encontraron repositorios disponibles.${neutro}"
