@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# Colores
+# ╔════════════════════════════════════════════════════════╗
+# ║        📦 GESTIÓN DE REPOSITORIOS EN ARTIFACT REGISTRY       ║
+# ╚════════════════════════════════════════════════════════╝
+
+# 🎨 Colores
 neutro='\033[0m'
 rojo='\033[0;31m'
 verde='\033[0;32m'
@@ -11,12 +15,12 @@ amarillo='\033[1;33m'
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT  # 🔐 Limpieza automática al salir
 
-# 🎡 Spinner de carga
+# 🎡 Spinner de carga con mensaje personalizado
 spinner() {
   local pid=$1
   local mensaje="$2"
   local delay=0.1
-  local spinstr='|/-\'
+  local spinstr='|/-\\'
 
   echo -ne "${cyan}${mensaje} "
   while kill -0 "$pid" 2>/dev/null; do
@@ -29,8 +33,8 @@ spinner() {
   echo -e " ${verde}✔ Completado${neutro}"
 }
 
-# Definición de regiones (41)
-declare -a REGIONS=(
+# 🌍 Definición de regiones y códigos
+REGIONS=(
   "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
   "🇺🇸 us-west3 (Salt Lake City)" "🇺🇸 us-west4 (Las Vegas)" "🇺🇸 us-east1 (Carolina del Sur)"
   "🇺🇸 us-east4 (Virginia del Norte)" "🇨🇦 northamerica-northeast1 (Montreal)" "🇨🇦 northamerica-northeast2 (Toronto)"
@@ -47,7 +51,7 @@ declare -a REGIONS=(
   "🇩🇪 europe-central2 (Berlín)" "🇫🇷 europe-west10 (Marsella)" "🇺🇸 us-east5 (Columbus)"
 )
 
-declare -a REGION_CODES=(
+REGION_CODES=(
   "us-central1" "us-west1" "us-west2" "us-west3" "us-west4" "us-east1" "us-east4"
   "northamerica-northeast1" "northamerica-northeast2" "southamerica-east1" "southamerica-west1"
   "europe-north1" "europe-west1" "europe-west2" "europe-west3" "europe-west4" "europe-west6"
@@ -60,6 +64,32 @@ declare -a REGION_CODES=(
   "europe-central2" "europe-west10" "us-east5"
 )
 
+# 🔍 Función para buscar repositorios en paralelo
+buscar_repositorios_en_paralelo() {
+  MAX_JOBS=8
+  JOBS=0
+
+  for region in "${REGION_CODES[@]}"; do
+    {
+      repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
+      while read -r repo; do
+        [[ -n "$repo" ]] && echo "$region|$repo"
+      done <<< "$repos"
+    } > "$TEMP_DIR/$region.txt" &
+
+    ((JOBS++))
+    if (( JOBS >= MAX_JOBS )); then
+      wait -n
+      ((JOBS--))
+    fi
+  done
+  wait
+}
+
+# ╔════════════════════════════════════════════════════════╗
+# ║            MENÚ PRINCIPAL: CREAR O USAR REPOSITORIO    ║
+# ╚════════════════════════════════════════════════════════╝
+
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
@@ -71,9 +101,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
       echo -e "${cyan}"
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo "📍 SELECCIÓN DE REGIÓN PARA EL NUEVO REPOSITORIO"
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo -e "${neutro}"
 
       PS3="Elige la región para el nuevo repositorio: "
@@ -85,16 +113,12 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
 
       echo
       read -p "📝 Ingresa el nombre del nuevo repositorio: " REPO_NAME
-
       if [[ -z "$REPO_NAME" ]]; then
         echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío.${neutro}"
         exit 1
       fi
 
-      echo -e "${cyan}"
-      echo "🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"..."
-      echo -e "${neutro}"
-
+      echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
       gcloud artifacts repositories create "$REPO_NAME" \
         --repository-format=docker \
         --location="$REGION" \
@@ -104,42 +128,29 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       break
       ;;
     2)
-      echo -e "${cyan}"
-      echo "🔍 Buscando repositorios existentes en todas las regiones..."
-      echo -e "${neutro}"
+      echo -e "${cyan}🔍 Buscando repositorios existentes en todas las regiones...${neutro}"
 
       REPO_LIST=()
       REPO_REGIONS=()
 
-# 🔍 Buscar repositorios en paralelo y guardar resultados por archivo
-for region in "${REGION_CODES[@]}"; do
-  {
-    repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
-    while read -r repo; do
-      [[ -n "$repo" ]] && echo "$region|$repo"
-    done <<< "$repos"
-  } > "$TEMP_DIR/$region.txt" &
-done
+      buscar_repositorios_en_paralelo &
+      pid=$!
+      spinner "$pid" "🔍 Buscando repositorios en todas las regiones..."
+      wait "$pid"
 
-spinner $$ "🔍 Buscando repositorios en todas las regiones..."
-wait
-
-# 📥 Leer resultados desde archivos temporales
-for file in "$TEMP_DIR"/*.txt; do
-  while IFS='|' read -r region repo; do
-    REPO_LIST+=("$repo")
-    REPO_REGIONS+=("$region")
-  done < "$file"
-done
+      for file in "$TEMP_DIR"/*.txt; do
+        while IFS='|' read -r region repo; do
+          REPO_LIST+=("$repo")
+          REPO_REGIONS+=("$region")
+        done < "$file"
+      done
 
       if [[ ${#REPO_LIST[@]} -eq 0 ]]; then
         echo -e "${rojo}❌ No se encontraron repositorios disponibles.${neutro}"
         exit 1
       fi
 
-      echo -e "${cyan}"
-      echo "📂 Repositorios encontrados:"
-      echo -e "${neutro}"
+      echo -e "${cyan}\n📂 Repositorios encontrados:${neutro}"
       PS3="Selecciona el repositorio que deseas usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
