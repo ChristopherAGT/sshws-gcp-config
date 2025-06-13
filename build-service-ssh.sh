@@ -7,6 +7,20 @@ verde='\033[0;32m'
 cyan='\033[0;36m'
 amarillo='\033[1;33m'
 
+# 🎡 Spinner de carga
+spinner() {
+  local pid=$!
+  local delay=0.1
+  local spinstr='|/-\'
+  while kill -0 $pid 2>/dev/null; do
+    local temp=${spinstr#?}
+    printf " [%c]  " "$spinstr"
+    spinstr=$temp${spinstr%"$temp"}
+    sleep $delay
+    printf "\b\b\b\b\b\b"
+  done
+}
+
 # Definición de regiones (41)
 declare -a REGIONS=(
   "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
@@ -44,7 +58,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3=$(echo -e "${amarillo}Selecciona una opción: ${neutro}")
+PS3="Selecciona una opción: "
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -89,25 +103,27 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       declare -a REPO_LIST=()
       declare -a REPO_REGIONS=()
 
-      for region in "${REGION_CODES[@]}"; do
-        repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
-        while read -r repo; do
-          if [[ -n "$repo" ]]; then
-            REPO_LIST+=("$repo")
-            REPO_REGIONS+=("$region")
-          fi
-        done <<< "$repos"
-      done
+      (
+  for region in "${REGION_CODES[@]}"; do
+    repos=$(gcloud artifacts repositories list --location="$region" --format="value(name)" 2>/dev/null)
+    while read -r repo; do
+      if [[ -n "$repo" ]]; then
+        REPO_LIST+=("$repo")
+        REPO_REGIONS+=("$region")
+      fi
+    done <<< "$repos"
+  done
+) & spinner
 
       if [[ ${#REPO_LIST[@]} -eq 0 ]]; then
         echo -e "${rojo}❌ No se encontraron repositorios disponibles.${neutro}"
         exit 1
       fi
 
-      echo -e "${verde}"
+      echo -e "${cyan}"
       echo "📂 Repositorios encontrados:"
       echo -e "${neutro}"
-      PS3=$(echo -e "${amarillo}Selecciona el repositorio que deseas usar: }")
+      PS3="Selecciona el repositorio que deseas usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
@@ -195,10 +211,12 @@ select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
 
             FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
 
-            mapfile -t IMAGENES_UNICAS < <(
-                gcloud artifacts docker images list "$FULL_REPO_PATH" \
-                --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
-            )
+            (
+  mapfile -t IMAGENES_UNICAS < <(
+    gcloud artifacts docker images list "$FULL_REPO_PATH" \
+    --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
+  )
+) & spinner
 
             if [[ ${#IMAGENES_UNICAS[@]} -eq 0 ]]; then
                 echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '${REPO_NAME}'.${neutro}"
