@@ -96,7 +96,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="Selecciona una opción: "
+PS3="🎯 Seleccione una opción: "
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -135,7 +135,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
 
       buscar_repositorios_en_paralelo &
       pid=$!
-      spinner "$pid" "🔍 Buscando repositorios en todas las regiones..."
+      spinner "$pid" "🔍 Buscando repositorios existentes en todas las regiones..."
       wait "$pid"
 
       for file in "$TEMP_DIR"/*.txt; do
@@ -150,8 +150,8 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
         exit 1
       fi
 
-      echo -e "${cyan}\n📂 Repositorios encontrados:${neutro}"
-      PS3="Selecciona el repositorio que deseas usar: "
+      echo -e "${amarillo}\n📂 Repositorios encontrados:${neutro}"
+      PS3="🎯 Seleccione el repositorio que desea usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
