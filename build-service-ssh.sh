@@ -96,7 +96,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="${cyan}Selecciona una opción: ${neutro}"
+PS3="Selecciona una opción: "
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -104,7 +104,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       echo "📍 SELECCIÓN DE REGIÓN PARA EL NUEVO REPOSITORIO"
       echo -e "${neutro}"
 
-      PS3="${cyan}Elige la región para el nuevo repositorio: ${neutro}"
+      PS3="Elige la región para el nuevo repositorio: "
       select region in "${REGIONS[@]}"; do
         REGION="${REGION_CODES[$REPLY-1]}"
         echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
@@ -128,9 +128,8 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       break
       ;;
     2)
-      # Eliminada la línea duplicada de mensaje aquí
-      # echo -e "${cyan}🔍 Buscando repositorios existentes en todas las regiones...${neutro}"
-
+      #echo -e "${cyan}🔍 Buscando repositorios existentes en todas las regiones...${neutro}"
+      echo
       REPO_LIST=()
       REPO_REGIONS=()
 
@@ -152,7 +151,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       fi
 
       echo -e "${cyan}\n📂 Repositorios encontrados:${neutro}"
-      PS3="${cyan}Selecciona el repositorio que deseas usar: ${neutro}"
+      PS3="Selecciona el repositorio que deseas usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
