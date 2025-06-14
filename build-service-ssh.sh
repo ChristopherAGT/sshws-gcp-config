@@ -232,22 +232,32 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${neutro}"
 
 PS3=$'\e[33mSeleccione una opción:\e[0m '
-select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
+select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar"; do
     case $REPLY in
         1)
+            imagen_opcion="Crear nueva imagen"
+            break
+            ;;
+        2)
             echo -e "${azul}🔍 Buscando imágenes en el repositorio '${REPO_NAME}' en la región '${REGION}'...${neutro}"
-
             FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
 
-            (
-  mapfile -t IMAGENES_UNICAS < <(
-    gcloud artifacts docker images list "$FULL_REPO_PATH" \
-    --format="value(package, digest)" 2>/dev/null | awk '!seen[$2]++'
-  )
-) & spinner
+            mapfile -t PAQUETES < <(gcloud artifacts docker images list "$FULL_REPO_PATH" --format="value(package)" 2>/dev/null)
+            OPCIONES=()
+            OPCIONES_INFO=()
 
-            if [[ ${#IMAGENES_UNICAS[@]} -eq 0 ]]; then
-                echo -e "${rojo}❌ No se encontraron imágenes en el repositorio '${REPO_NAME}'.${neutro}"
+            for paquete in "${PAQUETES[@]}"; do
+                TAGS=$(gcloud artifacts docker tags list "$paquete" --format="value(tag,digest)" 2>/dev/null)
+                while IFS=$'\t' read -r tag digest; do
+                    imagen_name=$(basename "$paquete")
+                    tag_clean=$(basename "$tag")
+                    OPCIONES+=("$FULL_REPO_PATH/$imagen_name:$tag_clean")
+                    OPCIONES_INFO+=("$imagen_name:$tag_clean (Digest: ${digest:0:12})")
+                done <<< "$TAGS"
+            done
+
+            if [[ ${#OPCIONES[@]} -eq 0 ]]; then
+                echo -e "${rojo}❌ No se encontraron imágenes etiquetadas en el repositorio.${neutro}"
                 echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
                 imagen_opcion="Crear nueva imagen"
                 break
@@ -259,35 +269,30 @@ select imagen_opcion in "Usar imagen existente" "Crear nueva imagen"; do
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo -e "${neutro}"
 
-            OPCIONES=()
-            for entry in "${IMAGENES_UNICAS[@]}"; do
-                IFS=' ' read -r package digest <<< "$entry"
-                imagen_name=$(basename "$package")
-                OPCIONES+=("${imagen_name}@${digest}")
-            done
-
             PS3=$'\e[33mSeleccione una imagen:\e[0m '
-select opcion in "${OPCIONES[@]}"; do
-    if [[ -n "$opcion" ]]; then
-        IMAGE_NAME="${opcion%@*}"
-        IMAGE_NAME=$(echo "$IMAGE_NAME" | tr -d '[:space:]')
-        DIGEST="${opcion#*@}"
-        IMAGE_TAG="1.0"
-        IMAGE_PATH="$FULL_REPO_PATH/$IMAGE_NAME"
-        imagen_opcion="Usar imagen existente"  # ✅ LÍNEA NECESARIA
-        echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME (Digest: ${DIGEST:0:12})${neutro}"
-        break 2
-    else
-        echo -e "${rojo}❌ Selección inválida. Intente de nuevo.${neutro}"
-    fi
-done
+            select opcion in "${OPCIONES_INFO[@]}" "Cancelar"; do
+                if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#OPCIONES[@]} ]]; then
+                    IMAGE_FULL="${OPCIONES[$REPLY-1]}"
+                    IMAGE_NAME=$(basename "${IMAGE_FULL%%:*}")
+                    IMAGE_TAG=$(basename "${IMAGE_FULL##*:}")
+                    IMAGE_PATH="${IMAGE_FULL%:*}"
+                    imagen_opcion="Usar imagen existente"
+                    echo -e "${verde}✔ Imagen seleccionada: $IMAGE_NAME:$IMAGE_TAG${neutro}"
+                    break 2
+                elif [[ "$REPLY" -eq $((${#OPCIONES[@]} + 1)) ]]; then
+                    echo -e "${amarillo}⚠️ Cancelado por el usuario.${neutro}"
+                    exit 0
+                else
+                    echo -e "${rojo}❌ Selección inválida. Intenta de nuevo.${neutro}"
+                fi
+            done
             ;;
-        2)
-            imagen_opcion="Crear nueva imagen"
-            break
+        3)
+            echo -e "${amarillo}⚠️ Cancelado por el usuario.${neutro}"
+            exit 0
             ;;
         *)
-            echo -e "${rojo}❌ Opción inválida. Por favor selecciona 1 o 2.${neutro}"
+            echo -e "${rojo}❌ Opción inválida. Intenta nuevamente.${neutro}"
             ;;
     esac
 done
