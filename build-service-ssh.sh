@@ -150,16 +150,24 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
         break
       done
 
-      read -p "📝 Ingresa el nombre del nuevo repositorio: " REPO_NAME
-if [[ -z "$REPO_NAME" ]]; then
-  echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío.${neutro}"
-  exit 1
-elif [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
-  echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
-  echo -e "${amarillo}🔸 Debe contener solo minúsculas, números y guiones"
-  echo -e "🔸 Debe empezar por letra y terminar en letra o número.${neutro}"
-  exit 1
-fi
+      # 🔁 Bucle para solicitar nombre de repositorio válido
+      while true; do
+        echo -e "${azul}📝 Ingresa el nombre del nuevo repositorio:${neutro}"
+        read -p "👉 " REPO_NAME
+
+        if [[ -z "$REPO_NAME" ]]; then
+          echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío. Intenta nuevamente.${neutro}"
+          continue
+        elif [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+          echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
+          echo -e "${amarillo}🔸 Debe contener solo minúsculas, números y guiones"
+          echo -e "🔸 Debe empezar por letra y terminar en letra o número.${neutro}"
+          continue
+        else
+          echo -e "${verde}✅ Nombre válido: \"$REPO_NAME\"${neutro}"
+          break
+        fi
+      done
 
       echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
       gcloud artifacts repositories create "$REPO_NAME" \
@@ -171,7 +179,6 @@ fi
       break
       ;;
     2)
-      #echo -e "${cyan}🔍 Buscando repositorios existentes en todas las regiones...${neutro}"
       echo
       REPO_LIST=()
       REPO_REGIONS=()
