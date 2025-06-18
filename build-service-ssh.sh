@@ -48,8 +48,14 @@ PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 
 if [[ -z "$ACCOUNT" || -z "$PROJECT_ID" ]]; then
   echo -e "${rojo}❌ Cuenta o proyecto no configurados.${neutro}"
-  echo -e "${amarillo}💡 Ejecuta 'gcloud init' para configurarlos.${neutro}"
-  exit 1
+  echo -e "${amarillo}💡 Iniciando configuración interactiva con 'gcloud init'...${neutro}"
+  gcloud init
+  ACCOUNT=$(gcloud config get-value account 2>/dev/null)
+  PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+  if [[ -z "$ACCOUNT" || -z "$PROJECT_ID" ]]; then
+    echo -e "${rojo}❌ La configuración no se completó correctamente. Abortando.${neutro}"
+    exit 1
+  fi
 fi
 
 echo -e "${verde}✅ Cuenta activa: $ACCOUNT${neutro}"
