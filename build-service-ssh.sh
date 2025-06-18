@@ -33,6 +33,39 @@ spinner() {
   echo -e " ${verde}✔ Completado${neutro}"
 }
 
+# ╔════════════════════════════════════════════════════════╗
+# ║      ⚙️ PREPARACIÓN DEL ENTORNO Y VERIFICACIÓN INICIAL       ║
+# ╚════════════════════════════════════════════════════════╝
+
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚙️  VERIFICANDO CUENTA ACTIVA Y PROYECTO"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
+
+ACCOUNT=$(gcloud config get-value account 2>/dev/null)
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
+if [[ -z "$ACCOUNT" || -z "$PROJECT_ID" ]]; then
+  echo -e "${rojo}❌ Cuenta o proyecto no configurados.${neutro}"
+  echo -e "${amarillo}💡 Ejecuta 'gcloud init' para configurarlos.${neutro}"
+  exit 1
+fi
+
+echo -e "${verde}✅ Cuenta activa: $ACCOUNT${neutro}"
+echo -e "${verde}✅ Proyecto activo: $PROJECT_ID${neutro}"
+
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ HABILITANDO APIS NECESARIAS"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
+
+gcloud services enable artifactregistry.googleapis.com run.googleapis.com cloudbuild.googleapis.com >/dev/null 2>&1 &
+spinner $! "🔄 Activando Artifact Registry, Cloud Run y Cloud Build"
+
+echo -e "${verde}✅ APIs necesarias activadas${neutro}"
+
 # 🌍 Definición de regiones y códigos
 REGIONS=(
   "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
@@ -111,12 +144,16 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
         break
       done
 
-      echo
       read -p "📝 Ingresa el nombre del nuevo repositorio: " REPO_NAME
-      if [[ -z "$REPO_NAME" ]]; then
-        echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío.${neutro}"
-        exit 1
-      fi
+if [[ -z "$REPO_NAME" ]]; then
+  echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío.${neutro}"
+  exit 1
+elif [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+  echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
+  echo -e "${amarillo}🔸 Debe contener solo minúsculas, números y guiones"
+  echo -e "🔸 Debe empezar por letra y terminar en letra o número.${neutro}"
+  exit 1
+fi
 
       echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
       gcloud artifacts repositories create "$REPO_NAME" \
