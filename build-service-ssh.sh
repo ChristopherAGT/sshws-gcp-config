@@ -74,33 +74,93 @@ echo -e "${verde}✅ APIs necesarias activadas${neutro}"
 
 # 🌍 Definición de regiones y códigos
 REGIONS=(
-  "🇺🇸 us-central1 (Iowa)" "🇺🇸 us-west1 (Oregón)" "🇺🇸 us-west2 (Los Ángeles)"
-  "🇺🇸 us-west3 (Salt Lake City)" "🇺🇸 us-west4 (Las Vegas)" "🇺🇸 us-east1 (Carolina del Sur)"
-  "🇺🇸 us-east4 (Virginia del Norte)" "🇨🇦 northamerica-northeast1 (Montreal)" "🇨🇦 northamerica-northeast2 (Toronto)"
-  "🇧🇷 southamerica-east1 (São Paulo)" "🇨🇱 southamerica-west1 (Santiago)"
-  "🇪🇺 europe-north1 (Finlandia)" "🇪🇺 europe-west1 (Bélgica)" "🇪🇺 europe-west2 (Londres)"
-  "🇪🇺 europe-west3 (Fráncfort)" "🇪🇺 europe-west4 (Países Bajos)" "🇪🇺 europe-west6 (Zúrich)"
-  "🇪🇸 europe-southwest1 (Madrid)" "🇮🇹 europe-southwest2 (Milán)" "🇫🇷 europe-west9 (París)"
-  "🇸🇪 europe-central2 (Varsovia)" "🇦🇺 australia-southeast1 (Sídney)" "🇦🇺 australia-southeast2 (Melbourne)"
-  "🇮🇳 asia-south1 (Mumbai)" "🇮🇳 asia-south2 (Delhi)" "🇯🇵 asia-northeast1 (Tokio)"
-  "🇯🇵 asia-northeast2 (Osaka)" "🇯🇵 asia-northeast3 (Sendai)" "🇸🇬 asia-southeast1 (Singapur)"
-  "🇮🇩 asia-southeast2 (Yakarta)" "🇹🇭 asia-southeast3 (Bangkok)" "🇰🇷 asia-east1 (Taiwán)"
-  "🇰🇷 asia-east2 (Hong Kong)" "🇸🇦 me-central1 (Dammam)" "🇶🇦 me-west1 (Doha)"
-  "🇿🇦 africa-south1 (Johannesburgo)" "🇦🇪 me-central2 (E.A.U.)" "🇰🇪 africa-east1 (Nairobi)"
-  "🇩🇪 europe-central2 (Berlín)" "🇫🇷 europe-west10 (Marsella)" "🇺🇸 us-east5 (Columbus)"
+  "🇿🇦 africa-south1 (Johannesburgo)"
+  "🇨🇦 northamerica-northeast1 (Montreal)"
+  "🇨🇦 northamerica-northeast2 (Toronto)"
+  "🇲🇽 northamerica-south1 (México)"
+  "🇧🇷 southamerica-east1 (São Paulo)"
+  "🇨🇱 southamerica-west1 (Santiago)"
+  "🇺🇸 us-central1 (Iowa)"
+  "🇺🇸 us-east1 (Carolina del Sur)"
+  "🇺🇸 us-east4 (Virginia del Norte)"
+  "🇺🇸 us-east5 (Columbus)"
+  "🇺🇸 us-south1 (Dallas)"
+  "🇺🇸 us-west1 (Oregón)"
+  "🇺🇸 us-west2 (Los Ángeles)"
+  "🇺🇸 us-west3 (Salt Lake City)"
+  "🇺🇸 us-west4 (Las Vegas)"
+  "🇹🇼 asia-east1 (Taiwán)"
+  "🇭🇰 asia-east2 (Hong Kong)"
+  "🇯🇵 asia-northeast1 (Tokio)"
+  "🇯🇵 asia-northeast2 (Osaka)"
+  "🇰🇷 asia-northeast3 (Seúl)"
+  "🇮🇳 asia-south1 (Bombay)"
+  "🇮🇳 asia-south2 (Delhi)"
+  "🇸🇬 asia-southeast1 (Singapur)"
+  "🇮🇩 asia-southeast2 (Yakarta)"
+  "🇦🇺 australia-southeast1 (Sídney)"
+  "🇦🇺 australia-southeast2 (Melbourne)"
+  "🇵🇱 europe-central2 (Varsovia)"
+  "🇫🇮 europe-north1 (Finlandia)"
+  "🇸🇪 europe-north2 (Estocolmo)"
+  "🇪🇸 europe-southwest1 (Madrid)"
+  "🇧🇪 europe-west1 (Bélgica)"
+  "🇬🇧 europe-west2 (Londres)"
+  "🇩🇪 europe-west3 (Fráncfort)"
+  "🇳🇱 europe-west4 (Netherlands)"
+  "🇨🇭 europe-west6 (Zúrich)"
+  "🇮🇹 europe-west8 (Milán)"
+  "🇫🇷 europe-west9 (París)"
+  "🇩🇪 europe-west10 (Berlín)"
+  "🇮🇹 europe-west12 (Turín)"
+  "🇶🇦 me-central1 (Doha)"
+  "🇸🇦 me-central2 (Dammam)"
+  "🇮🇱 me-west1 (Tel Aviv)"
 )
 
 REGION_CODES=(
-  "us-central1" "us-west1" "us-west2" "us-west3" "us-west4" "us-east1" "us-east4"
-  "northamerica-northeast1" "northamerica-northeast2" "southamerica-east1" "southamerica-west1"
-  "europe-north1" "europe-west1" "europe-west2" "europe-west3" "europe-west4" "europe-west6"
-  "europe-southwest1" "europe-southwest2" "europe-west9" "europe-central2"
-  "australia-southeast1" "australia-southeast2"
-  "asia-south1" "asia-south2" "asia-northeast1" "asia-northeast2" "asia-northeast3"
-  "asia-southeast1" "asia-southeast2" "asia-southeast3"
-  "asia-east1" "asia-east2"
-  "me-central1" "me-west1" "africa-south1" "me-central2" "africa-east1"
-  "europe-central2" "europe-west10" "us-east5"
+  "africa-south1"
+  "northamerica-northeast1"
+  "northamerica-northeast2"
+  "northamerica-south1"
+  "southamerica-east1"
+  "southamerica-west1"
+  "us-central1"
+  "us-east1"
+  "us-east4"
+  "us-east5"
+  "us-south1"
+  "us-west1"
+  "us-west2"
+  "us-west3"
+  "us-west4"
+  "asia-east1"
+  "asia-east2"
+  "asia-northeast1"
+  "asia-northeast2"
+  "asia-northeast3"
+  "asia-south1"
+  "asia-south2"
+  "asia-southeast1"
+  "asia-southeast2"
+  "australia-southeast1"
+  "australia-southeast2"
+  "europe-central2"
+  "europe-north1"
+  "europe-north2"
+  "europe-southwest1"
+  "europe-west1"
+  "europe-west2"
+  "europe-west3"
+  "europe-west4"
+  "europe-west6"
+  "europe-west8"
+  "europe-west9"
+  "europe-west10"
+  "europe-west12"
+  "me-central1"
+  "me-central2"
+  "me-west1"
 )
 
 # 🔍 Función para buscar repositorios en paralelo
@@ -152,22 +212,26 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
 
       # 🔁 Bucle para solicitar nombre de repositorio válido
       while true; do
-        echo -e "${azul}📝 Ingresa el nombre del nuevo repositorio:${neutro}"
-        read -p "👉 " REPO_NAME
+  read -p "${azul}Ingrese el nombre del nuevo repositorio: ${neutro}" REPO_NAME
 
-        if [[ -z "$REPO_NAME" ]]; then
-          echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío. Intenta nuevamente.${neutro}"
-          continue
-        elif [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
-          echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
-          echo -e "${amarillo}🔸 Debe contener solo minúsculas, números y guiones"
-          echo -e "🔸 Debe empezar por letra y terminar en letra o número.${neutro}"
-          continue
-        else
-          echo -e "${verde}✅ Nombre válido: \"$REPO_NAME\"${neutro}"
-          break
-        fi
-      done
+  # 🚫 Validar si está vacío
+  if [[ -z "$REPO_NAME" ]]; then
+    echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío. Intenta nuevamente.${neutro}"
+    continue
+  fi
+
+  # 🧪 Validar patrón permitido
+  if [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+    echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
+    echo -e "${amarillo}🔸 Solo se permiten minúsculas, números y guiones (-)"
+    echo -e "🔸 Debe comenzar con una letra"
+    echo -e "🔸 Debe terminar en letra o número${neutro}"
+    continue
+  fi
+
+  echo -e "${verde}✅ Nombre válido: \"$REPO_NAME\"${neutro}"
+  break
+done
 
       echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
       gcloud artifacts repositories create "$REPO_NAME" \
@@ -350,29 +414,39 @@ done
 # 🔁 Solo se ejecuta si se eligió crear una nueva imagen
 if [[ "$imagen_opcion" == "Crear nueva imagen" ]]; then
     echo -e "${cyan}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🏗️ CONSTRUCCIÓN DE IMAGEN DOCKER"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🏗️  CONSTRUCCIÓN DE IMAGEN DOCKER"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${neutro}"
 
-    while true; do
-        echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (Enter para usar 'gcp'):${neutro}"
-        read -p "📝 Nombre de la imagen: " input_image
-        IMAGE_NAME="${input_image:-gcp}"
-        IMAGE_TAG="1.0"
-        IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
-        IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
+while true; do
+    echo -e "${azul}📛 Ingresa un nombre para la imagen Docker (presione Enter para usar 'gcp'):${neutro}"
+    read -p "📝 Nombre de la imagen: " input_image
+    IMAGE_NAME="${input_image:-gcp}"
+    IMAGE_TAG="1.0"
+    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME"
+    IMAGE_FULL="$IMAGE_PATH:$IMAGE_TAG"
 
-        echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+    # 🧪 Validar formato del nombre
+    if [[ ! "$IMAGE_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+        echo -e "${rojo}❌ Nombre inválido: \"$IMAGE_NAME\".${neutro}"
+        echo -e "${amarillo}🔸 Solo se permiten minúsculas, números y guiones (-)"
+        echo -e "🔸 Debe comenzar con una letra"
+        echo -e "🔸 Debe terminar en letra o número${neutro}"
+        continue
+    fi
 
-        if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
-            echo -e "${rojo}❌ Ya existe una imagen '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
-            echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescribir.${neutro}"
-            continue
-        else
-            echo -e "${verde}✔ Nombre de imagen válido y único.${neutro}"
-            break
-        fi
-    done
+    echo -e "${azul}🔍 Comprobando si la imagen '${IMAGE_NAME}:${IMAGE_TAG}' ya existe...${neutro}"
+    if gcloud artifacts docker images describe "$IMAGE_FULL" &>/dev/null; then
+        echo -e "${rojo}❌ Ya existe una imagen con el nombre '${IMAGE_NAME}:${IMAGE_TAG}' en el repositorio.${neutro}"
+        echo -e "${amarillo}🔁 Por favor, elige un nombre diferente para evitar sobrescritura.${neutro}"
+        echo
+        continue
+    else
+        echo -e "${verde}✅ Nombre válido y disponible: '${IMAGE_NAME}:${IMAGE_TAG}'${neutro}"
+        break
+    fi
+done
 
     echo -e "${cyan}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -454,9 +528,35 @@ while true; do
   fi
 done
 
-# Solicitar al usuario el nombre del servicio (default: rain)
-read -p "📛 Ingresa el nombre que deseas para el servicio en Cloud Run (default: rain): " SERVICE_NAME
-SERVICE_NAME=${SERVICE_NAME:-rain}
+# 🛠️ VALIDACIÓN DEL NOMBRE DEL SERVICIO EN CLOUD RUN
+while true; do
+    echo -e "${azul}📛 Ingresa el nombre que deseas para el servicio en Cloud Run (Presione Enter para usar 'cloudrun-cdn'):${neutro}"
+    read -p "📝 Nombre del servicio: " input_service
+    SERVICE_NAME="${input_service:-cloudrun-cdn}"
+
+    # 🧪 Validar formato del nombre
+    if [[ ! "$SERVICE_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+        echo -e "${rojo}❌ Nombre inválido: \"$SERVICE_NAME\".${neutro}"
+        echo -e "${amarillo}🔸 Solo se permiten minúsculas, números y guiones (-)"
+        echo -e "🔸 Debe comenzar con una letra"
+        echo -e "🔸 Debe terminar en letra o número${neutro}"
+        echo
+        continue
+    fi
+
+    # 🚫 Verificar si ya existe el servicio en esa región
+    if gcloud run services describe "$SERVICE_NAME" \
+        --region="$CLOUD_RUN_REGION" \
+        --platform=managed &>/dev/null; then
+        echo -e "${rojo}❌ Ya existe un servicio con el nombre \"$SERVICE_NAME\" en la región \"$CLOUD_RUN_REGION\".${neutro}"
+        echo -e "${amarillo}🔁 Por favor elige un nombre diferente.${neutro}"
+        echo
+        continue
+    fi
+
+    echo -e "${verde}✅ Nombre válido y disponible: \"$SERVICE_NAME\"${neutro}"
+    break
+done
 
 # 🔐 Solicitar y validar el subdominio personalizado para DHOST
 while true; do
@@ -483,10 +583,10 @@ while true; do
     fi
 done
 
-# Obtener número de proyecto
+# 🔢 Obtener número de proyecto
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
-# Ejecutar despliegue en la región seleccionada
+# 🚀 Ejecutar despliegue en la región seleccionada
 SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
   --image "$IMAGE_PATH:$IMAGE_TAG" \
   --platform managed \
@@ -499,7 +599,7 @@ SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
   --quiet \
   --format="value(status.url)")
 
-# Verificar éxito del despliegue
+# ✅ Verificar éxito del despliegue
 if [[ $? -ne 0 ]]; then
     echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
     exit 1
