@@ -640,7 +640,7 @@ done
 
 # 🔐 Solicitar y validar el subdominio personalizado para DHOST
 while true; do
-    echo -e "${amarillo}"
+    echo -e "${azul}"
     read -p "🌐 Ingrese su subdominio personalizado (Cloudflare): " DHOST
     echo -e "${neutro}"
 
@@ -652,7 +652,7 @@ while true; do
 
     echo -e "${verde}✅ Se ingresó el subdominio: $DHOST${neutro}"
     echo
-    echo -ne "${cyan}¿Desea continuar con este subdominio? (s/n): ${neutro}"
+    echo -ne "${azul}¿Desea continuar con este subdominio? (s/n): ${neutro}"
     read -r CONFIRMAR
     CONFIRMAR=${CONFIRMAR,,}
 
@@ -666,23 +666,36 @@ done
 # 🔢 Obtener número de proyecto
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
-# 🚀 Ejecutar despliegue en la región seleccionada
-SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
-  --image "$IMAGE_PATH:$IMAGE_TAG" \
-  --platform managed \
-  --region "$CLOUD_RUN_REGION" \
-  --allow-unauthenticated \
-  --port 8080 \
-  --timeout 3600 \
-  --concurrency 100 \
-  --set-env-vars="DHOST=${DHOST},DPORT=22" \
-  --quiet \
-  --format="value(status.url)")
+# 🚀 Ejecutar despliegue en la región seleccionada con spinner y recursos
+{
+  gcloud run deploy "$SERVICE_NAME" \
+    --image "$IMAGE_PATH:$IMAGE_TAG" \
+    --platform managed \
+    --region "$CLOUD_RUN_REGION" \
+    --allow-unauthenticated \
+    --port 8080 \
+    --timeout 3600 \
+    --concurrency 100 \
+    --memory=1Gi \
+    --cpu=2 \
+    --min-instances=0 \
+    --max-instances=1 \
+    --set-env-vars="DHOST=${DHOST},DPORT=22" \
+    --quiet \
+    > /dev/null 2>&1
+} &
+pid=$!
 
-# ✅ Verificar éxito del despliegue
-if [[ $? -ne 0 ]]; then
-    echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
-    exit 1
+spinner $pid "🚀 Desplegando servicio en Cloud Run..."
+
+wait $pid
+exit_status=$?
+
+if [[ $exit_status -ne 0 ]]; then
+  echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
+  exit 1
+else
+  echo -e "${verde}✅ Servicio desplegado exitosamente.${neutro}"
 fi
 
 # Dominio regional del servicio
