@@ -208,7 +208,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       done
 
       while true; do
-        echo -ne "${azul}Elige el número de la región para el nuevo repositorio: ${neutro}"
+        echo -ne "${azul}■ Seleccione una región para el nuevo repositorio: ${neutro}"
         read region_index
 
         if ! [[ "$region_index" =~ ^[0-9]+$ ]] || (( region_index < 1 || region_index > ${#REGION_CODES[@]} )); then
@@ -222,7 +222,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
 
       # 🔁 Bucle para solicitar nombre de repositorio válido
       while true; do
-        echo -ne "${azul}Ingrese el nombre del nuevo repositorio: ${neutro}"
+        echo -ne "${azul}✏️ Ingrese el nombre para el nuevo repositorio: ${neutro}"
         read REPO_NAME
         REPO_NAME=$(echo "$REPO_NAME" | tr -d '\r\n' | xargs)  # Limpieza de entrada
 
