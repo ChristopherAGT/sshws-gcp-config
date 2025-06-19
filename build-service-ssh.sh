@@ -203,45 +203,66 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       echo "📍 SELECCIÓN DE REGIÓN PARA EL NUEVO REPOSITORIO"
       echo -e "${neutro}"
 
-      PS3="Elige la región para el nuevo repositorio: "
-      select region in "${REGIONS[@]}"; do
-        REGION="${REGION_CODES[$REPLY-1]}"
-        echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
-        break
+      for i in "${!REGIONS[@]}"; do
+        printf "%2d) %s\n" $((i+1)) "${REGIONS[$i]}"
+      done
+
+      while true; do
+        echo -ne "${azul}Elige el número de la región para el nuevo repositorio: ${neutro}"
+        read region_index
+
+        if ! [[ "$region_index" =~ ^[0-9]+$ ]] || (( region_index < 1 || region_index > ${#REGION_CODES[@]} )); then
+          echo -e "${rojo}❌ Selección inválida. Intenta nuevamente.${neutro}"
+        else
+          REGION="${REGION_CODES[$((region_index-1))]}"
+          echo -e "${verde}✔ Región seleccionada: $REGION${neutro}"
+          break
+        fi
       done
 
       # 🔁 Bucle para solicitar nombre de repositorio válido
       while true; do
-  read -p "${azul}Ingrese el nombre del nuevo repositorio: ${neutro}" REPO_NAME
+        echo -ne "${azul}Ingrese el nombre del nuevo repositorio: ${neutro}"
+        read REPO_NAME
+        REPO_NAME=$(echo "$REPO_NAME" | tr -d '\r\n' | xargs)  # Limpieza de entrada
 
-  # 🚫 Validar si está vacío
-  if [[ -z "$REPO_NAME" ]]; then
-    echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío. Intenta nuevamente.${neutro}"
-    continue
-  fi
+        if [[ -z "$REPO_NAME" ]]; then
+          echo -e "${rojo}❌ El nombre del repositorio no puede estar vacío. Intenta nuevamente.${neutro}"
+          continue
+        fi
 
-  # 🧪 Validar patrón permitido
-  if [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
-    echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
-    echo -e "${amarillo}🔸 Solo se permiten minúsculas, números y guiones (-)"
-    echo -e "🔸 Debe comenzar con una letra"
-    echo -e "🔸 Debe terminar en letra o número${neutro}"
-    continue
-  fi
+        if [[ ! "$REPO_NAME" =~ ^[a-z][a-z0-9\-]*[a-z0-9]$ ]]; then
+          echo -e "${rojo}❌ Nombre inválido: \"$REPO_NAME\".${neutro}"
+          echo -e "${amarillo}🔸 Solo se permiten minúsculas, números y guiones (-)"
+          echo -e "🔸 Debe comenzar con una letra"
+          echo -e "🔸 Debe terminar en letra o número${neutro}"
+          continue
+        fi
 
-  echo -e "${verde}✅ Nombre válido: \"$REPO_NAME\"${neutro}"
-  break
-done
+        # Verificar si ya existe
+        if gcloud artifacts repositories describe "$REPO_NAME" --location="$REGION" &>/dev/null; then
+          echo -e "${rojo}❌ El repositorio \"$REPO_NAME\" ya existe en la región $REGION.${neutro}"
+          echo -e "${amarillo}🔁 Intenta con otro nombre diferente.${neutro}"
+          continue
+        fi
+
+        echo -e "${verde}✅ Nombre válido: \"$REPO_NAME\"${neutro}"
+        break
+      done
 
       echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
-      gcloud artifacts repositories create "$REPO_NAME" \
+      if gcloud artifacts repositories create "$REPO_NAME" \
         --repository-format=docker \
         --location="$REGION" \
-        --description="Repositorio Docker creado por script"
-
-      echo -e "${verde}✅ Repositorio creado exitosamente.${neutro}"
+        --description="Repositorio Docker creado por script"; then
+        echo -e "${verde}✅ Repositorio creado exitosamente.${neutro}"
+      else
+        echo -e "${rojo}❌ Ocurrió un error al crear el repositorio.${neutro}"
+        exit 1
+      fi
       break
       ;;
+
     2)
       echo
       REPO_LIST=()
@@ -281,10 +302,12 @@ done
       done
       break
       ;;
+
     3)
       echo -e "${amarillo}⚠️  Cancelado por el usuario.${neutro}"
       exit 0
       ;;
+
     *)
       echo -e "${rojo}❌ Opción inválida. Intenta nuevamente.${neutro}"
       ;;
