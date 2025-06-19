@@ -666,9 +666,17 @@ done
 # 🔢 Obtener número de proyecto
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
-# 🚀 Ejecutar despliegue en la región seleccionada con spinner y recursos
-{
-  gcloud run deploy "$SERVICE_NAME" \
+echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🚀 DESPLEGANDO SERVICIO EN CLOUD RUN"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 📄 Archivo temporal para capturar salida y errores
+LOG_TEMP=$(mktemp)
+
+# 🚀 Despliegue en segundo plano
+(
+  SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
     --image "$IMAGE_PATH:$IMAGE_TAG" \
     --platform managed \
     --region "$CLOUD_RUN_REGION" \
@@ -682,38 +690,48 @@ PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectN
     --max-instances=1 \
     --set-env-vars="DHOST=${DHOST},DPORT=22" \
     --quiet \
-    > /dev/null 2>&1
-} &
-pid=$!
+    --format="value(status.url)") &> "$LOG_TEMP"
+  echo "$SERVICE_URL" > "$LOG_TEMP.url"
+) &
+spinner $! "☁️ Desplegando servicio en Cloud Run..."
 
-spinner $pid "🚀 Desplegando servicio en Cloud Run..."
+# 📥 Obtener resultado del archivo temporal
+SERVICE_URL=$(cat "$LOG_TEMP.url" 2>/dev/null)
 
-wait $pid
-exit_status=$?
-
-if [[ $exit_status -ne 0 ]]; then
-  echo -e "${rojo}❌ Error en el despliegue de Cloud Run.${neutro}"
+# ❗ Verificación de error
+if [[ -z "$SERVICE_URL" ]]; then
+  echo -e "${rojo}❌ Error al desplegar el servicio en Cloud Run.${neutro}"
+  echo -e "${amarillo}📄 Detalles del error:${neutro}"
+  cat "$LOG_TEMP"
+  rm -f "$LOG_TEMP" "$LOG_TEMP.url"
   exit 1
-else
-  echo -e "${verde}✅ Servicio desplegado exitosamente.${neutro}"
 fi
+
+# 🧹 Limpieza
+rm -f "$LOG_TEMP" "$LOG_TEMP.url"
+
+# ✅ Mensaje final
+echo -e "${verde}✅ Servicio desplegado correctamente en:${neutro}"
+
+#URL OMITIDO
+#echo -e "${azul}$SERVICE_URL${neutro}"
 
 # Dominio regional del servicio
 REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${CLOUD_RUN_REGION}.run.app"
 
 # Mostrar resumen final
-echo -e "${verde}"
+echo -e "${cyan}"
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║ 📦 INFORMACIÓN DEL DESPLIEGUE EN CLOUD RUN                  ║"
+echo "║ 📦 ${neutro}${amarillo}INFORMACIÓN DEL DESPLIEGUE EN CLOUD RUN${neutro}${cyan}                  ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo "║ 🗂️ ID del Proyecto GCP  : $PROJECT_ID"
-echo "║ 🔢 Número de Proyecto   : $PROJECT_NUMBER"
-echo "║ 🗃️ Repositorio Docker   : $REPO_NAME"
-echo "║ 📍 Región de Despliegue : $REGION"
-echo "║ 🖼️ Nombre de la Imagen  : $IMAGE_NAME:$IMAGE_TAG"
-echo "║ 📛 Nombre del Servicio  : $SERVICE_NAME"
-echo "║ 📍 Región de Despliegue : $CLOUD_RUN_REGION"
-echo "║ 🌐 URL del Servicio     : $SERVICE_URL"
-echo "║ 🌐 Dominio Regional     : $REGIONAL_DOMAIN"
+echo -e "║ ${amarillo}🗂️ ID del Proyecto GCP  ${neutro}: ${verde}$PROJECT_ID${cyan}"
+echo -e "║ ${amarillo}🔢 Número de Proyecto   ${neutro}: ${verde}$PROJECT_NUMBER${cyan}"
+echo -e "║ ${amarillo}🗃️ Repositorio Docker   ${neutro}: ${verde}$REPO_NAME${cyan}"
+echo -e "║ ${amarillo}📍 Región de Repositorio${neutro}: ${verde}$REGION${cyan}"
+echo -e "║ ${amarillo}🖼️ Nombre de la Imagen  ${neutro}: ${verde}$IMAGE_NAME:$IMAGE_TAG${cyan}"
+echo -e "║ ${amarillo}📛 Nombre del Servicio  ${neutro}: ${verde}$SERVICE_NAME${cyan}"
+echo -e "║ ${amarillo}📍 Región de Despliegue ${neutro}: ${verde}$CLOUD_RUN_REGION${cyan}"
+echo -e "║ ${amarillo}🌐 URL del Servicio     ${neutro}: ${azul}$SERVICE_URL${cyan}"
+echo -e "║ ${amarillo}🌐 Dominio Regional     ${neutro}: ${azul}$REGIONAL_DOMAIN${cyan}"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo -e "${neutro}"
