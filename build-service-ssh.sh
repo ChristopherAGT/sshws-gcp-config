@@ -6,9 +6,10 @@
 
 # 🎨 Colores
 neutro='\033[0m'
-rojo='\033[0;31m'
-verde='\033[0;32m'
-cyan='\033[0;36m'
+rojo='\033[1;31m'
+verde='\033[1;32m'
+azul='\033[1;34m'
+cyan='\033[1;36m'
 amarillo='\033[1;33m'
 
 # 📁 Directorio temporal para almacenamiento intermedio
@@ -195,7 +196,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="🔘 Seleccione una opción: "
+PS3="🔢 Seleccione una opción: "
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -286,7 +287,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       fi
 
       echo -e "${amarillo}\n📂 Repositorios encontrados:${neutro}"
-      PS3="🔘 Seleccione el repositorio que desea usar: "
+      PS3="🔢 Seleccione el repositorio que desea usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
@@ -368,7 +369,7 @@ echo "🖼️ OPCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3=$'\e[33mSeleccione una opción:\e[0m '
+PS3=$'\e[33m🔢 Seleccione una opción:\e[0m '
 select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar"; do
     case $REPLY in
         1)
@@ -596,7 +597,7 @@ for i in "${!REGIONS[@]}"; do
 done
 
 while true; do
-  read -p "Ingrese el número de la región para el servicio: " CLOUD_RUN_INDEX
+  read -p "■ Seleccione una región para el servicio Cloud Run: " CLOUD_RUN_INDEX
 
   if ! [[ "$CLOUD_RUN_INDEX" =~ ^[0-9]+$ ]] || (( CLOUD_RUN_INDEX < 1 || CLOUD_RUN_INDEX > ${#REGION_CODES[@]} )); then
     echo -e "${rojo}❌ Selección inválida. Intente nuevamente.${neutro}"
