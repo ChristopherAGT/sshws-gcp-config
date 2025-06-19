@@ -472,47 +472,103 @@ while true; do
 done
 
     echo -e "${cyan}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📥 CLONANDO REPOSITORIO"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📥 CLONANDO REPOSITORIO"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    if [[ -d "sshws-gcp" ]]; then
-        echo -e "${amarillo}🧹 Eliminando versión previa del directorio sshws-gcp...${neutro}"
-        rm -rf sshws-gcp
-    fi
-
-    git clone https://github.com/ChristopherAGT/sshws-gcp || {
-        echo -e "${rojo}❌ Error al clonar el repositorio.${neutro}"
-        exit 1
-    }
-
-    cd sshws-gcp || {
-        echo -e "${rojo}❌ No se pudo acceder al directorio sshws-gcp.${neutro}"
-        exit 1
-    }
-
-    echo -e "${cyan}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🐳 CONSTRUYENDO IMAGEN DOCKER"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    docker build -t "$IMAGE_PATH:$IMAGE_TAG" .
-
-    [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al construir la imagen.${neutro}" && exit 1
-
-    echo -e "${cyan}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📤 SUBIENDO IMAGEN A ARTIFACT REGISTRY"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    docker push "$IMAGE_PATH:$IMAGE_TAG"
-
-    [[ $? -ne 0 ]] && echo -e "${rojo}❌ Error al subir la imagen.${neutro}" && exit 1
-
-    echo -e "${cyan}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🧹 LIMPIANDO DIRECTORIO TEMPORAL"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    cd ..
+if [[ -d "sshws-gcp" ]]; then
+    echo -e "${amarillo}🧹 Eliminando versión previa del directorio sshws-gcp...${neutro}"
     rm -rf sshws-gcp
+fi
+
+# 🌀 Ejecuta git clone en segundo plano y lanza el spinner
+(
+  git clone https://github.com/ChristopherAGT/sshws-gcp &> /dev/null
+) &
+spinner $! "🔄 Clonando repositorio..."
+
+# 📂 Verifica acceso al nuevo directorio
+cd sshws-gcp || {
+    echo -e "${rojo}❌ No se pudo acceder al directorio sshws-gcp.${neutro}"
+    exit 1
+}
+
+# ✅ Mensaje final de éxito
+echo -e "${verde}📥 Repositorio 'sshws-gcp' clonado exitosamente.${neutro}"
+
+    echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🐳 CONSTRUYENDO IMAGEN DOCKER"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 📄 Archivo temporal para capturar errores
+LOG_TEMP=$(mktemp)
+
+# 🐳 Construcción con salida capturada
+(
+  docker build -t "$IMAGE_PATH:$IMAGE_TAG" . &> "$LOG_TEMP"
+) &
+spinner $! "🔧 Construyendo imagen Docker..."
+
+# ❗ Verificación de error
+if [[ $? -ne 0 ]]; then
+  echo -e "${rojo}❌ Error al construir la imagen.${neutro}"
+  echo -e "${amarillo}📄 Detalles del error:${neutro}"
+  cat "$LOG_TEMP"
+  rm -f "$LOG_TEMP"
+  exit 1
+fi
+
+# 🧹 Limpieza y mensaje de éxito
+rm -f "$LOG_TEMP"
+echo -e "${verde}🐳 Imagen Docker '${IMAGE_PATH}:${IMAGE_TAG}' construida exitosamente.${neutro}"
+
+    echo -e "${cyan}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📤 SUBIENDO IMAGEN A ARTIFACT REGISTRY"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 📄 Archivo temporal para errores
+LOG_TEMP=$(mktemp)
+
+# 📤 Push silencioso en segundo plano
+(
+  docker push "$IMAGE_PATH:$IMAGE_TAG" &> "$LOG_TEMP"
+) &
+spinner $! "🚀 Subiendo imagen al Artifact Registry..."
+
+# ❗ Verifica si hubo error
+if [[ $? -ne 0 ]]; then
+  echo -e "${rojo}❌ Error al subir la imagen.${neutro}"
+  echo -e "${amarillo}📄 Detalles del error:${neutro}"
+  cat "$LOG_TEMP"
+  rm -f "$LOG_TEMP"
+  exit 1
+fi
+
+# ✅ Éxito: limpiar y mostrar mensaje final
+rm -f "$LOG_TEMP"
+echo -e "${verde}📦 Imagen subida exitosamente al Artifact Registry.${neutro}"
+
+# 🧹 Limpieza
+rm -f "$LOG_TEMP"
+
+    # 🧰 Limpia un directorio temporal con spinner y confirmación
+limpiar_directorio_temporal() {
+  local dir="$1"
+
+  echo -e "${cyan}"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🧹 LIMPIANDO DIRECTORIO TEMPORAL"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  (
+    cd .. && rm -rf "$dir"
+  ) &
+  spinner $! "🧼 Eliminando carpeta temporal $dir..."
+
+  echo -e "${verde}📁 Directorio temporal '$dir' eliminado correctamente.${neutro}"
+}
 
     echo -e "${amarillo}"
     echo "╔════════════════════════════════════════════════════════════╗"
