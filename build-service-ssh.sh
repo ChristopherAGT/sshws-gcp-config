@@ -252,17 +252,31 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       done
 
       echo -e "${cyan}🚧 Creando repositorio \"$REPO_NAME\" en la región \"$REGION\"...${neutro}"
-      if gcloud artifacts repositories create "$REPO_NAME" \
-        --repository-format=docker \
-        --location="$REGION" \
-        --description="Repositorio Docker creado por script"; then
-        echo -e "${verde}✅ Repositorio creado exitosamente.${neutro}"
-      else
-        echo -e "${rojo}❌ Ocurrió un error al crear el repositorio.${neutro}"
-        exit 1
-      fi
-      break
-      ;;
+
+LOG_TEMP=$(mktemp)
+
+# ▶️ Creación del repositorio en segundo plano
+(
+  gcloud artifacts repositories create "$REPO_NAME" \
+    --repository-format=docker \
+    --location="$REGION" \
+    --description="Repositorio Docker creado por script" &> "$LOG_TEMP"
+) &
+spinner $! "📦 Creando repositorio..."
+
+# 🧾 Verificar resultado
+if grep -q "ERROR:" "$LOG_TEMP"; then
+  echo -e "${rojo}❌ Ocurrió un error al crear el repositorio.${neutro}"
+  echo -e "${amarillo}📄 Detalles del error:${neutro}"
+  cat "$LOG_TEMP"
+  rm -f "$LOG_TEMP"
+  exit 1
+else
+  echo -e "${verde}✅ Repositorio creado exitosamente.${neutro}"
+  rm -f "$LOG_TEMP"
+fi
+break
+;;
 
     2)
       echo
@@ -666,16 +680,19 @@ done
 # 🔢 Obtener número de proyecto
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
+# 🚀 Desplegar Servicio Cloud Run
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🚀 DESPLEGANDO SERVICIO EN CLOUD RUN"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 📄 Archivo temporal para capturar salida y errores
+# 📄 Archivos temporales
 LOG_TEMP=$(mktemp)
+URL_TEMP=$(mktemp)
 
-# 🚀 Despliegue en segundo plano
+# 🚀 Ejecutar despliegue en segundo plano
 (
+  exec &> "$LOG_TEMP"  # Redirige stdout y stderr dentro del subshell
   SERVICE_URL=$(gcloud run deploy "$SERVICE_NAME" \
     --image "$IMAGE_PATH:$IMAGE_TAG" \
     --platform managed \
@@ -683,35 +700,35 @@ LOG_TEMP=$(mktemp)
     --allow-unauthenticated \
     --port 8080 \
     --timeout 3600 \
-    --concurrency 100 \
+    --concurrency=100 \
     --memory=1Gi \
     --cpu=2 \
     --min-instances=0 \
     --max-instances=1 \
     --set-env-vars="DHOST=${DHOST},DPORT=22" \
     --quiet \
-    --format="value(status.url)") &> "$LOG_TEMP"
-  echo "$SERVICE_URL" > "$LOG_TEMP.url"
+    --format="value(status.url)")
+  echo "$SERVICE_URL" > "$URL_TEMP"
 ) &
 spinner $! "☁️ Desplegando servicio en Cloud Run..."
 
 # 📥 Obtener resultado del archivo temporal
-SERVICE_URL=$(cat "$LOG_TEMP.url" 2>/dev/null)
+SERVICE_URL=$(cat "$URL_TEMP" 2>/dev/null)
 
 # ❗ Verificación de error
 if [[ -z "$SERVICE_URL" ]]; then
   echo -e "${rojo}❌ Error al desplegar el servicio en Cloud Run.${neutro}"
   echo -e "${amarillo}📄 Detalles del error:${neutro}"
   cat "$LOG_TEMP"
-  rm -f "$LOG_TEMP" "$LOG_TEMP.url"
+  rm -f "$LOG_TEMP" "$URL_TEMP"
   exit 1
 fi
 
 # 🧹 Limpieza
-rm -f "$LOG_TEMP" "$LOG_TEMP.url"
+rm -f "$LOG_TEMP" "$URL_TEMP"
 
 # ✅ Mensaje final
-echo -e "${verde}✅ Servicio desplegado correctamente en:${neutro}"
+echo -e "${verde}✅ Servicio desplegado correctamente.${neutro}"
 
 #URL OMITIDO
 #echo -e "${azul}$SERVICE_URL${neutro}"
@@ -720,18 +737,18 @@ echo -e "${verde}✅ Servicio desplegado correctamente en:${neutro}"
 REGIONAL_DOMAIN="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${CLOUD_RUN_REGION}.run.app"
 
 # Mostrar resumen final
-echo -e "${cyan}"
+echo -e "${verde}"
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║ 📦 ${neutro}${amarillo}INFORMACIÓN DEL DESPLIEGUE EN CLOUD RUN${neutro}${cyan}                  ║"
+echo "║ 📦 INFORMACIÓN DEL DESPLIEGUE EN CLOUD RUN                  ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo -e "║ ${amarillo}🗂️ ID del Proyecto GCP  ${neutro}: ${verde}$PROJECT_ID${cyan}"
-echo -e "║ ${amarillo}🔢 Número de Proyecto   ${neutro}: ${verde}$PROJECT_NUMBER${cyan}"
-echo -e "║ ${amarillo}🗃️ Repositorio Docker   ${neutro}: ${verde}$REPO_NAME${cyan}"
-echo -e "║ ${amarillo}📍 Región de Repositorio${neutro}: ${verde}$REGION${cyan}"
-echo -e "║ ${amarillo}🖼️ Nombre de la Imagen  ${neutro}: ${verde}$IMAGE_NAME:$IMAGE_TAG${cyan}"
-echo -e "║ ${amarillo}📛 Nombre del Servicio  ${neutro}: ${verde}$SERVICE_NAME${cyan}"
-echo -e "║ ${amarillo}📍 Región de Despliegue ${neutro}: ${verde}$CLOUD_RUN_REGION${cyan}"
-echo -e "║ ${amarillo}🌐 URL del Servicio     ${neutro}: ${azul}$SERVICE_URL${cyan}"
-echo -e "║ ${amarillo}🌐 Dominio Regional     ${neutro}: ${azul}$REGIONAL_DOMAIN${cyan}"
+echo "║ 🗂️ ID del Proyecto GCP  : $PROJECT_ID"
+echo "║ 🔢 Número de Proyecto   : $PROJECT_NUMBER"
+echo "║ 🗃️ Repositorio Docker   : $REPO_NAME"
+echo "║ 📍 Región de Despliegue : $REGION"
+echo "║ 🖼️ Nombre de la Imagen  : $IMAGE_NAME:$IMAGE_TAG"
+echo "║ 📛 Nombre del Servicio  : $SERVICE_NAME"
+echo "║ 📍 Región de Despliegue : $CLOUD_RUN_REGION"
+echo "║ 🌐 URL del Servicio     : $SERVICE_URL"
+echo "║ 🌐 Dominio Regional     : $REGIONAL_DOMAIN"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo -e "${neutro}"
