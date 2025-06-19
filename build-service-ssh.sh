@@ -195,7 +195,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="🎯 Seleccione una opción: "
+PS3="🔘 Seleccione una opción: "
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -286,7 +286,7 @@ select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
       fi
 
       echo -e "${amarillo}\n📂 Repositorios encontrados:${neutro}"
-      PS3="🎯 Seleccione el repositorio que desea usar: "
+      PS3="🔘 Seleccione el repositorio que desea usar: "
       select repo in "${REPO_LIST[@]}" "Cancelar"; do
         if [[ "$REPLY" -gt 0 && "$REPLY" -le ${#REPO_LIST[@]} ]]; then
           REPO_NAME=$(basename "$repo")
@@ -524,7 +524,7 @@ fi
 # 🚀 DESPLIEGUE DEL SERVICIO EN CLOUD RUN
 echo -e "${cyan}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🌐 DESPLEGANDO SERVICIO EN CLOUD RUN"
+echo "🌐 CONFIGURACION DE DESPLIEGUE DEL SERVICIO CLOUD RUN"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
@@ -553,7 +553,7 @@ done
 
 # 🛠️ VALIDACIÓN DEL NOMBRE DEL SERVICIO EN CLOUD RUN
 while true; do
-    echo -e "${azul}📛 Ingresa el nombre que deseas para el servicio en Cloud Run (Presione Enter para usar 'cloudrun-cdn'):${neutro}"
+    echo -e "${azul}📛 Ingrese el nombre que desea para el servicio en Cloud Run (Presione Enter para usar 'cloudrun-cdn'):${neutro}"
     read -p "📝 Nombre del servicio: " input_service
     SERVICE_NAME="${input_service:-cloudrun-cdn}"
 
