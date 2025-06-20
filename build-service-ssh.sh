@@ -197,8 +197,8 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="${amarillo}📋 Seleccione una opción: ${neutro}"
-select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
+PS3=$'\033[1;33m📋 Seleccione una opción: \033[0m'
+select opcion in "🛠️ Crear nuevo repositorio" "📦 Usar uno existente" "❌ Cancelar"; do
   case $REPLY in
     1)
       echo -e "${cyan}"
@@ -384,7 +384,7 @@ echo "🖼️ OPCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="${amarillo}📋 Seleccione una opción:${neutro} "
+PS3=$'\033[1;33m📋 Seleccione una opción: \033[0m'
 select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente" "❌ Cancelar"; do
     case $REPLY in
         1)
