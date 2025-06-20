@@ -385,14 +385,16 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${neutro}"
 
 # Menú principal
-PS3=$'\e[33m🔢 Seleccione una opción:\e[0m '
-select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar"; do
+PS3=$'\e[1;33m🔢 Seleccione una opción:\e[0m '
+select opcion_seleccionada in "Crear nueva imagen" "Usar imagen existente" "Cancelar"; do
     case $REPLY in
         1)
-            imagen_opcion="Crear nueva imagen"
+            imagen_opcion="crear"
+            echo -e "${verde}🛠️ Se procederá a crear una nueva imagen Docker...${neutro}"
             break
             ;;
         2)
+            imagen_opcion="existente"
             echo -e "${azul}🔍 Buscando imágenes en el repositorio '${REPO_NAME}' en la región '${REGION}'...${neutro}"
             FULL_REPO_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
 
@@ -413,9 +415,19 @@ select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar";
             if [[ ${#OPCIONES[@]} -eq 0 ]]; then
                 echo -e "${rojo}❌ No se encontraron imágenes etiquetadas en el repositorio.${neutro}"
                 echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
-                imagen_opcion="Crear nueva imagen"
-                break
+                imagen_opcion="crear"
             fi
+            break
+            ;;
+        3)
+            echo -e "${rojo}❌ Cancelado por el usuario.${neutro}"
+            exit 1
+            ;;
+        *)
+            echo -e "${rojo}❗ Opción inválida. Intente nuevamente.${neutro}"
+            ;;
+    esac
+done
 
             echo -e "${cyan}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
