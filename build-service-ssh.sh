@@ -11,6 +11,7 @@ verde='\033[1;32m'
 azul='\033[1;34m'
 cyan='\033[1;36m'
 amarillo='\033[1;33m'
+magenta='\033[1;35m'
 
 # 📁 Directorio temporal para almacenamiento intermedio
 TEMP_DIR=$(mktemp -d)
@@ -196,7 +197,7 @@ echo "📦  GESTIÓN DE REPOSITORIO EN ARTIFACT REGISTRY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3="🔢 Seleccione una opción: "
+PS3="${amarillo}📋 Seleccione una opción: ${neutro}"
 select opcion in "Crear nuevo repositorio" "Usar uno existente" "Cancelar"; do
   case $REPLY in
     1)
@@ -383,8 +384,8 @@ echo "🖼️ OPCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
-PS3=$'\e[33m🔢 Seleccione una opción:\e[0m '
-select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar"; do
+PS3="${amarillo}📋 Seleccione una opción:${neutro} "
+select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente" "❌ Cancelar"; do
     case $REPLY in
         1)
             imagen_opcion="Crear nueva imagen"
@@ -409,11 +410,21 @@ select imagen_opcion in "Crear nueva imagen" "Usar imagen existente" "Cancelar";
             done
 
             if [[ ${#OPCIONES[@]} -eq 0 ]]; then
-                echo -e "${rojo}❌ No se encontraron imágenes etiquetadas en el repositorio.${neutro}"
-                echo -e "${amarillo}🔁 Se procederá a crear una nueva imagen.${neutro}"
+                echo -e "${rojo}🛑 No se encontraron imágenes etiquetadas en el repositorio.${neutro}"
+                echo -e "${amarillo}🔄 Se procederá a crear una nueva imagen.${neutro}"
                 imagen_opcion="Crear nueva imagen"
-                break
             fi
+            break
+            ;;
+        3)
+            echo -e "${rojo}❌ Cancelado por el usuario.${neutro}"
+            exit 1
+            ;;
+        *)
+            echo -e "${rojo}❌ Opción inválida. Intente nuevamente.${neutro}"
+            ;;
+    esac
+done
 
             echo -e "${cyan}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -611,7 +622,8 @@ for i in "${!REGIONS[@]}"; do
 done
 
 while true; do
-  read -p "■ Seleccione una región para el servicio Cloud Run: " CLOUD_RUN_INDEX
+  echo -ne "${azul}■ Seleccione una región para el servicio Cloud Run: ${neutro}"
+  read CLOUD_RUN_INDEX
 
   if ! [[ "$CLOUD_RUN_INDEX" =~ ^[0-9]+$ ]] || (( CLOUD_RUN_INDEX < 1 || CLOUD_RUN_INDEX > ${#REGION_CODES[@]} )); then
     echo -e "${rojo}❌ Selección inválida. Intente nuevamente.${neutro}"
