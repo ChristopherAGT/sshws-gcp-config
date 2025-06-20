@@ -384,11 +384,13 @@ echo "🖼️ OPCIÓN DE IMAGEN DOCKER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${neutro}"
 
+# Menú principal
 PS3=$'\033[1;33m📋 Seleccione una opción: \033[0m'
 select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente" "❌ Cancelar"; do
     case $REPLY in
         1)
             imagen_opcion="Crear nueva imagen"
+            echo -e "${verde}🛠️ Se procederá a crear una nueva imagen Docker...${neutro}"
             break
             ;;
         2)
@@ -405,7 +407,7 @@ select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente
                     imagen_name=$(basename "$paquete")
                     tag_clean=$(basename "$tag")
                     OPCIONES+=("$FULL_REPO_PATH/$imagen_name:$tag_clean")
-                    OPCIONES_INFO+=("$imagen_name:$tag_clean (Digest: ${digest:0:12})")
+                    OPCIONES_INFO+=("📦 $imagen_name:$tag_clean (Digest: ${digest:0:12})")
                 done <<< "$TAGS"
             done
 
@@ -414,6 +416,7 @@ select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente
                 echo -e "${amarillo}🔄 Se procederá a crear una nueva imagen.${neutro}"
                 imagen_opcion="Crear nueva imagen"
             fi
+
             break
             ;;
         3)
@@ -421,7 +424,7 @@ select imagen_opcion in "🛠️ Crear nueva imagen" "📦 Usar imagen existente
             exit 1
             ;;
         *)
-            echo -e "${rojo}❌ Opción inválida. Intente nuevamente.${neutro}"
+            echo -e "${rojo}❗ Opción inválida. Intente nuevamente.${neutro}"
             ;;
     esac
 done
